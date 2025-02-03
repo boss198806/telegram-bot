@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"
 GROUP_ID = "-1002451371911"
-PHOTO_PATH = "D:/photo.jpg"  # Укажите правильный путь к фото
+PHOTO_PATH = "https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg"  # Укажите правильный путь к фото
 
 
 # Словари для хранения данных
@@ -139,11 +139,11 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     # Пути к фото (остаются привязаны к своим дням)
     photo_paths = {
-        1: "D:/IMG_9647.png",  
-        2: "D:/IMG_9648.png",  
-        3: "D:/IMG_9649.png",  
-        4: "D:/IMG_9650.png",  
-        5: "D:/IMG_9651.png"  
+        1: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9647.PNG",  
+        2: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9648.PNG",  
+        3: "Dhttps://github.com/boss198806/telegram-bot/blob/main/IMG_9649.PNG",  
+        4: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9650.PNG",  
+        5: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9651.PNG"  
     }
 
     # Программа тренировок (переставлены только дни 4 и 5)
@@ -495,11 +495,11 @@ async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption = f"👤 Ваш кабинет:\n\nСтатус: {status}\nБаллы: {score}\nПродолжайте тренироваться, чтобы улучшить статус и заработать больше баллов!"
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
-            photo=open("D:/IMG_9695.png", 'rb'),
+            photo=open("https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG", 'rb'),
             caption=caption  # Это описание, которое будет под фото
         )
     except FileNotFoundError:
-        logger.error(f"Файл D:/IMG_9695.png не найден.")
+        logger.error(f"Файл https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG.")
         await update.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
     except Exception as e:
         logger.error(f"Ошибка в /my_cabinet: {e}")
@@ -525,11 +525,11 @@ async def handle_about_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
-            photo=open("D:/photo_2025.jpg", 'rb'),  # Фото для "Обо мне" в формате jpg
+            photo=open("https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg", 'rb'),  # Фото для "Обо мне" в формате jpg
             caption=caption  # Это описание, которое будет под фото
         )
     except FileNotFoundError:
-        logger.error(f"Файл D:/photo_2025.jpg не найден.")
+        logger.error(f"Файл https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg не найден.")
         await update.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
     except Exception as e:
         logger.error(f"Ошибка в /about_me: {e}")
@@ -550,11 +550,11 @@ async def handle_earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
-            photo=open("D:/IMG_9699.png", 'rb'),
+            photo=open("https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG", 'rb'),
             caption=caption  # Это описание, которое будет под фото
         )
     except FileNotFoundError:
-        logger.error(f"Файл D:/IMG_9699.png не найден.")
+        logger.error(f"Файл https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG не найден.")
         await update.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
     except Exception as e:
         logger.error(f"Ошибка в /earn_points: {e}")
@@ -582,11 +582,11 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
-            photo=open("D:/IMG_9692.png", 'rb'),
+            photo=open("https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG", 'rb'),
             caption=caption  # Это описание, которое будет под фото
         )
     except FileNotFoundError:
-        logger.error(f"Файл D:/IMG_9692.png не найден.")
+        logger.error(f"Файл https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG не найден.")
         await update.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
     except Exception as e:
         logger.error(f"Ошибка в /spend_points: {e}")
