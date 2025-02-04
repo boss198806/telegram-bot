@@ -181,8 +181,7 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Исправим открытие файла с использованием open()
 photo_url = photo_paths.get(current_day)
 try:
-    # Асинхронный вызов для отправки фото
-    await context.bot.send_photo(
+await context.bot.send_photo(
         chat_id=update.effective_chat.id,  # chat_id первым
         photo="https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg?raw=true",  # прямая ссылка на фото
         caption=caption,
