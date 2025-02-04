@@ -181,22 +181,24 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Исправим открытие файла с использованием open()
 photo_url = photo_paths.get(current_day)
 try:
-  # Это асинхронная функция
-async def send_photo_to_user(update, context):
-    try:
-        # Асинхронный вызов
-        await context.bot.send_photo(
-            chat_id=update.effective_chat.id,
-            photo="https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg?raw=true",  # Прямая ссылка на фото
-            caption=caption,
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
-            )
+    # Асинхронный вызов для отправки фото
+    await context.bot.send_photo(
+        chat_id=update.effective_chat.id,  # chat_id первым
+        photo="https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg?raw=true",  # прямая ссылка на фото
+        caption=caption,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
         )
-    except Exception as e:
-        logger.error(f"Ошибка при отправке изображения: {e}")
-        await update.message.reply_text("Ошибка: изображение не найдено. Продолжайте без фото.")
+    )
+except Exception as e:
+    logger.error(f"Ошибка при отправке изображения: {e}")
+    await update.message.reply_text(
+        "Ошибка: изображение не найдено. Продолжайте без фото.",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
+        )
+    )
 # Обработка кнопки "Челленджи"
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
