@@ -284,23 +284,53 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
 
 
-# Челленджи
+# Программа для челленджей
+course_program_challenges = {
+    1: [
+        "1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+        "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+        "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"
+    ],
+    2: [
+        "1️⃣ Присед со штангой (можно без) 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+        "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+        "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"
+    ],
+    3: [
+        "1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+        "2️⃣ Подъёмы ног лёжа 3х15 [Видео](https://t.me/c/2241417709/367/368)"
+    ],
+    4: [
+        "1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+        "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+        "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"
+    ],
+    5: [
+        "1️⃣ Присед со штангой (можно без) 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+        "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+        "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"
+    ]
+}
+
+# Обработка кнопки "Челленджи"
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
 
-
     if user_challenges.get(user_id):
         # Если доступ уже куплен, показываем задание и просим отправить отчет
+        current_day = context.user_data.get(user_id, {}).get("current_day", 1)
+        exercises = course_program_challenges.get(current_day, [])
+
+        # Если текущий день завершен, сообщаем
+        if current_day > 5:
+            await query.message.reply_text("Вы завершили челлендж! Поздравляем! 🎉")
+            return
+
+        challenge_text = f"Ваше задание на день {current_day}:\n\n" + "\n".join(exercises)
         await query.message.reply_text(
-            "Ваше задание на сегодня:\n"
-            "1️⃣ Бег 5 км\n"
-            "2️⃣ Планка 3 минуты\n"
-            "3️⃣ Подтягивания 3x10\n\n"
-            "Отправьте видео-отчет, чтобы получить 60 баллов!",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Отправить отчет", callback_data="send_challenge_report")]]
-            )
+            challenge_text,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить отчет", callback_data="send_challenge_report")]])
         )
     else:
         if user_scores.get(user_id, 0) >= 300:
@@ -314,10 +344,66 @@ async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         else:
             await query.message.reply_text(
-                "Для доступа к челленджам нужно 300 баллов. "
-                f"У вас {user_scores.get(user_id, 0)} баллов. "
-                "Продолжайте тренировки!"
+                f"Для доступа к челленджам нужно 300 баллов. У вас {user_scores.get(user_id, 0)} баллов."
             )
+
+
+# Обработка отправки отчета для челленджа
+async def send_challenge_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    current_day = context.user_data.get(user_id, {}).get("current_day", 1)
+
+    if current_day > 5:
+        await query.message.reply_text("Вы завершили челлендж! Поздравляем!")
+        return
+
+    user_waiting_for_challenge_video[user_id] = current_day
+    await query.message.reply_text("Отправьте видео-отчет для челленджа:")
+
+# Обработка видео для челленджа
+async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_name = update.message.from_user.first_name
+
+    # Обработка отчетов для челленджа
+    if user_id in user_waiting_for_challenge_video:
+        current_day = user_waiting_for_challenge_video[user_id]
+
+        await context.bot.send_message(
+            chat_id=GROUP_ID,
+            text=f"Видео-отчет от {user_name} (ID: {user_id}) за челлендж. День {current_day}"
+        )
+        await context.bot.send_video(
+            chat_id=GROUP_ID,
+            video=update.message.video.file_id
+        )
+
+        # Начисление баллов
+        user_scores[user_id] += 60
+        del user_waiting_for_challenge_video[user_id]
+
+        # Переход к следующему дню
+        context.user_data[user_id]["current_day"] = current_day + 1
+
+        if current_day < 5:
+            await update.message.reply_text(
+                f"Отчет за день {current_day} принят! 🎉\n"
+                f"Ваши баллы: {user_scores[user_id]}.\n"
+                f"Переход к следующему дню.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton(f"➡ Перейти ко дню {current_day + 1}", callback_data="free_course")]]
+                )
+            )
+        else:
+            user_status[user_id] = statuses[1]
+            await update.message.reply_text(
+                f"Поздравляем! Вы завершили челлендж! 🎉\n"
+                f"Ваши баллы: {user_scores[user_id]}.",
+                reply_markup=main_menu()
+            )
+    else:
+        await update.message.reply_text("❌ Я не жду видео. Выберите задание в меню.")
 
 
 # Покупка челленджа
