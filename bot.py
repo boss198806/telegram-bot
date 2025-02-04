@@ -202,24 +202,27 @@ async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
 
+    # Проверяем, есть ли доступ к челленджам
     if user_challenges.get(user_id):
-        # Если доступ уже куплен, показываем задание
+        # Если доступ уже куплен, показываем задание на текущий день
         current_day = context.user_data.get(user_id, {}).get("current_day", 1)
         
         # Получаем программу для челленджа на текущий день
         exercises = course_program_challenges.get(current_day, [])
 
+        # Если программа для текущего дня не найдена
         if not exercises:
             await query.message.reply_text("Упражнения для этого дня не найдены.")
             return
 
-        # Отправляем текст с программой
+        # Формируем текст задания
         challenge_text = f"Ваше задание на день {current_day}:\n\n" + "\n".join(exercises)
         await query.message.reply_text(
             challenge_text,
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить отчет", callback_data="send_challenge_report")]])
         )
     else:
+        # Если еще нет доступа к челленджам
         if user_scores.get(user_id, 0) >= 300:
             buttons = [
                 [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge")],
