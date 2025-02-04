@@ -205,7 +205,7 @@ async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
 
     # Проверяем, есть ли доступ к челленджам
-    if user_challenges.get(user_id) == True
+    if user_challenges.get(user_id) == True:
         # Если доступ уже куплен, показываем задание на текущий день
         current_day = context.user_data.get(user_id, {}).get("current_day", 1)
         
