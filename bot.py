@@ -179,12 +179,12 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день, чтобы получить баллы!"
 
     # Исправим открытие файла с использованием open()
-photo_path = photo_paths.get(current_day)
+photo_url = photo_paths.get(current_day)
 try:
     # Вместо open() используем ссылку напрямую
     await context.bot.send_photo(
         chat_id=update.effective_chat.id,
-        photo=photo_path,  # Прямая ссылка на фото
+        https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg=photo_path,  # Прямая ссылка на фото
         caption=caption,
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(
