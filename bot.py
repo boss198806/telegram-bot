@@ -183,14 +183,14 @@ photo_url = photo_paths.get(current_day)
 try:
     # Вместо open() используем ссылку напрямую
     await context.bot.send_photo(
-        chat_id=update.effective_chat.id,
-        https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg?raw=true=photo_path,  # Прямая ссылка на фото
-        caption=caption,
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
-        )
+    chat_id=update.effective_chat.id,  # chat_id первым
+    photo="https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg?raw=true",  # прямая ссылка на фото
+    caption=caption,
+    parse_mode="Markdown",
+    reply_markup=InlineKeyboardMarkup(
+        [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
     )
+)
 except Exception as e:
     logger.error(f"Ошибка при отправке изображения: {e}")
     await query.message.reply_text(
