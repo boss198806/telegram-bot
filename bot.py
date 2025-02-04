@@ -197,21 +197,42 @@ async def send_photo_to_user(update, context):
     except Exception as e:
         logger.error(f"Ошибка при отправке изображения: {e}")
         await update.message.reply_text("Ошибка: изображение не найдено. Продолжайте без фото.")
-# Обработка кнопки "Отправить отчет" для бесплатного курса
-async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Обработка кнопки "Челленджи"
+async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    current_day = int(query.data.split("_")[-1])  # Извлекаем день из callback_data
 
+    if user_challenges.get(user_id):
+        # Если доступ уже куплен, показываем задание
+        current_day = context.user_data.get(user_id, {}).get("current_day", 1)
+        
+        # Получаем программу для челленджа на текущий день
+        exercises = course_program_challenges.get(current_day, [])
 
-    if user_reports_sent.get(user_id, {}).get(current_day):
-        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day}.")
-        return
+        if not exercises:
+            await query.message.reply_text("Упражнения для этого дня не найдены.")
+            return
 
-
-    user_waiting_for_video[user_id] = current_day
-    await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день.")
-
+        # Отправляем текст с программой
+        challenge_text = f"Ваше задание на день {current_day}:\n\n" + "\n".join(exercises)
+        await query.message.reply_text(
+            challenge_text,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить отчет", callback_data="send_challenge_report")]])
+        )
+    else:
+        if user_scores.get(user_id, 0) >= 300:
+            buttons = [
+                [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge")],
+                [InlineKeyboardButton("Назад", callback_data="back")]
+            ]
+            await query.message.reply_text(
+                "Доступ к челленджам стоит 300 баллов. Хотите приобрести?",
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+        else:
+            await query.message.reply_text(
+                f"Для доступа к челленджам нужно 300 баллов. У вас {user_scores.get(user_id, 0)} баллов."
+            )
 
 # Обработка видео
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
