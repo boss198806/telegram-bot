@@ -178,18 +178,27 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     exercises = course_program.get(current_day, [])
     caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день, чтобы получить баллы!"
 
-    # Исправим открытие файла с использованием open()
-photo_url = photo_paths.get(current_day)
-try:
-    await context.bot.send_photo(
-        chat_id=update.effective_chat.id,  # chat_id первым
-        photo="https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg?raw=true",  # прямая ссылка на фото
-        caption=caption,
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
+    # Функция для отправки фото
+async def send_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        # Отправка фото с использованием await
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg?raw=true",  # Прямая ссылка на фото
+            caption="Описание к фото",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Отправить отчет", callback_data="send_report")]]
+            )
         )
-    )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке изображения: {e}")
+        await update.message.reply_text(
+            "Ошибка: изображение не найдено. Продолжайте без фото.",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Отправить отчет", callback_data="send_report")]]
+            )
+        )
 except Exception as e:
     logger.error(f"Ошибка при отправке изображения: {e}")
     await update.message.reply_text(
