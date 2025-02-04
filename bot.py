@@ -323,8 +323,6 @@ async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Для доступа к челленджам нужно 300 баллов. У вас {user_scores.get(user_id, 0)} баллов."
             )
 
-
-# Обработка отправки отчета для челленджа
 async def send_challenge_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
