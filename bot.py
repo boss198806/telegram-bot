@@ -184,7 +184,7 @@ try:
     # Вместо open() используем ссылку напрямую
     await context.bot.send_photo(
         chat_id=update.effective_chat.id,
-        https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg=photo_path,  # Прямая ссылка на фото
+        https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg?raw=true=photo_path,  # Прямая ссылка на фото
         caption=caption,
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(
