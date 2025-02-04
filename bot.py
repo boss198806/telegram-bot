@@ -199,14 +199,6 @@ async def send_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [[InlineKeyboardButton("Отправить отчет", callback_data="send_report")]]
             )
         )
-except Exception as e:
-    logger.error(f"Ошибка при отправке изображения: {e}")
-    await update.message.reply_text(
-        "Ошибка: изображение не найдено. Продолжайте без фото.",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
-        )
-    )
 # Обработка кнопки "Челленджи"
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
