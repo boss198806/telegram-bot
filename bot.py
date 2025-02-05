@@ -2,9 +2,6 @@ import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-
-
-
 # Настройка логирования
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -12,12 +9,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-
-
 TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"
 GROUP_ID = "-1002451371911"
-PHOTO_PATH = "D:/photo.jpg"  # Укажите правильный путь к фото
+PHOTO_PATH = "D:/https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg?raw=true"  # Укажите правильный путь к фото
 
 
 
@@ -26,40 +20,26 @@ PHOTO_PATH = "D:/photo.jpg"  # Укажите правильный путь к �
 user_scores = {}
 user_status = {}
 user_reports_sent = {}
-user_waiting_for_video = {}  # Для бесплатного курса
-user_waiting_for_challenge_video = {}  # Для челленджей
+user_waiting_for_video = {}
+user_waiting_for_challenge_video = {}
 user_waiting_for_receipt = {}
 user_challenges = {}
 
-
-
-
-# Статусы
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
-
-
-
-# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id
-        context.chat_data[user_id] = {"current_day": 1}
-        user_scores[user_id] = 0
-        user_status[user_id] = statuses[0]
-
-
-
+        context.user_data.setdefault(user_id, {"current_day": 1})
+        user_scores[user_id] = user_scores.get(user_id, 0)
+        user_status[user_id] = user_status.get(user_id, statuses[0])
 
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
             photo=open(PHOTO_PATH, 'rb'),
-            caption="Привет! Я твой фитнес-ассистент! Помогу с тренировками, мотивацией и достижением целей.",
+            caption="Привет! Я твой фитнес-ассистент!",
             reply_markup=main_menu()
         )
-    except FileNotFoundError:
-        logger.error(f"Файл {PHOTO_PATH} не найден.")
-        await update.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
     except Exception as e:
         logger.error(f"Ошибка в /start: {e}")
         await update.message.reply_text("Произошла ошибка. Пожалуйста, попробуйте позже.")
@@ -69,30 +49,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Главное меню
 def main_menu():
-    buttons = [
+    return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔥 Пройти бесплатный курс", callback_data="free_course")],
-        [InlineKeyboardButton("💪 Челленджи", callback_data="start_challenge")],
+        [InlineKeyboardButton("💪 Челленджи", callback_data="challenge_menu")],
         [InlineKeyboardButton("📚 Платный курс", callback_data="paid_course")],
-        [InlineKeyboardButton("🍽 Меню питания", callback_data="nutrition_menu")],  # Новая кнопка
+        [InlineKeyboardButton("🍽 Меню питания", callback_data="nutrition_menu")],
         [InlineKeyboardButton("👤 Мой кабинет", callback_data="my_cabinet")],
         [InlineKeyboardButton("💡 Как заработать баллы", callback_data="earn_points")],
         [InlineKeyboardButton("💰 Как потратить баллы", callback_data="spend_points")],
         [InlineKeyboardButton("ℹ️ Обо мне", callback_data="about_me")],
-    ]
-    return InlineKeyboardMarkup(buttons)
-
-
-
-
-
-
-
+    ])
 
 # Обработка кнопки "Меню питания"
-async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    await query.answer()
     user_id = query.from_user.id
-    user_score = user_scores.get(user_id, 0)
 
 
 
@@ -139,24 +111,21 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
     # Теперь получаем обновленный current_day
-    current_day = context.user_data[user_id]["current_day"]
+    current_day = context.user_data[user_id].get("current_day", 1)
 
 
     if current_day > 5:
-        await query.message.reply_text(
-            "Вы завершили бесплатный курс! Поздравляем! 🎉",
-            reply_markup=main_menu()
-        )
+        await query.message.reply_text("Вы завершили курс! 🎉", reply_markup=main_menu())
         return
 
 
     # Пути к фото (остаются привязаны к своим дням)
     photo_paths = {
-        1: "D:/IMG_9647.png",  
-        2: "D:/IMG_9648.png",  
-        3: "D:/IMG_9649.png",  
-        4: "D:/IMG_9650.png",  
-        5: "D:/IMG_9651.png"  
+        1: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9647.PNG?raw=true",  
+        2: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9648.PNG?raw=true",  
+        3: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9649.PNG?raw=true",  
+        4: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9650.PNG?raw=true",  
+        5: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9651.PNG?raw=true"
     }
 
 
@@ -292,187 +261,125 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-    # Обработка отчетов для челленджей
-    elif user_id in user_waiting_for_challenge_video:
-        await context.bot.send_message(
-            chat_id=GROUP_ID,
-            text=f"Видео-отчет от {user_name} (ID: {user_id}) за челлендж."
-        )
-        await context.bot.send_video(
-            chat_id=GROUP_ID,
-            video=update.message.video.file_id
-        )
-
-
-
-
-        user_scores[user_id] += 60
-        del user_waiting_for_challenge_video[user_id]
-        await update.message.reply_text(
-            f"Отчет за челлендж принят! 🎉\n"
-            f"Ваши баллы: {user_scores[user_id]}."
-        )
-
-
-
-
-    else:
-        await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
-
-
-
-
-# Челленджи
-async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-
-
-
-
-    if user_challenges.get(user_id):
-        # Если доступ уже куплен, показываем задание и просим отправить отчет
-        await query.message.reply_text(
-            "Ваше задание на сегодня:\n"
-            "1️⃣ Бег 5 км\n"
-            "2️⃣ Планка 3 минуты\n"
-            "3️⃣ Подтягивания 3x10\n\n"
-            "Отправьте видео-отчет, чтобы получить 60 баллов!",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Отправить отчет", callback_data="send_challenge_report")]]
-            )
-        )
-    else:
-        if user_scores.get(user_id, 0) >= 300:
-            buttons = [
-                [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge")],
-                [InlineKeyboardButton("Назад", callback_data="back")]
-            ]
-            await query.message.reply_text(
-                "Доступ к челленджам стоит 300 баллов. Хотите приобрести?",
-                reply_markup=InlineKeyboardMarkup(buttons)
-            )
-        else:
-            await query.message.reply_text(
-                "Для доступа к челленджам нужно 300 баллов. "
-                f"У вас {user_scores.get(user_id, 0)} баллов. "
-                "Продолжайте тренировки!"
-            )
-
-
-
+    # Словарь с программой челленджа
+challenge_program = {
+    1: [
+        "1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+        "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+        "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"
+    ],
+    2: [
+        "1️⃣ Присед со штангой (можно без) 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+        "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+        "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"
+    ],
+    3: [
+        "1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+        "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"
+    ],
+    4: [
+        "1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+        "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+        "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"
+    ],
+    5: [
+        "1️⃣ Присед со штангой (можно без) 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+        "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+        "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"
+    ]
+}
 
 # Покупка челленджа
-async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def buy_challenge(update: Update, context: CallbackContext):
     query = update.callback_query
     user_id = query.from_user.id
 
-
-
-
     if user_scores.get(user_id, 0) >= 300:
-        user_scores[user_id] -= 300
-        user_challenges[user_id] = True
+        user_scores[user_id] -= 300  # Списываем баллы
+        user_challenges[user_id] = {"current_day": 1}  # Записываем 1-й день челленджа
 
-
-
-
-        # После покупки сразу выдаем задание и просим отправить отчет
         await query.message.reply_text(
-            "✅ Доступ к челленджам открыт!\n\n"
-            "Ваше задание на сегодня:\n"
-            "1️⃣ Бег 5 км\n"
-            "2️⃣ Планка 3 минуты\n"
-            "3️⃣ Подтягивания 3x10\n\n"
-            "Отправьте видео-отчет, чтобы получить 60 баллов!",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Отправить отчет", callback_data="send_challenge_report")]]
-            )
+            "✅ Доступ к челленджу открыт!\n"
+            "Вы начинаете с **1-го дня**. Отправьте видео-отчет, чтобы перейти дальше."
         )
+
+        await send_challenge_task(query.message, user_id)  # Отправляем 1-й день
     else:
-        await query.message.reply_text("Недостаточно баллов для покупки доступа!")
+        await query.message.reply_text(
+            f"❌ Недостаточно баллов! Вам нужно 300, а у вас {user_scores.get(user_id, 0)}."
+        )
 
+# Отправка задания челленджа
+async def send_challenge_task(message, user_id):
+    current_day = user_challenges[user_id]["current_day"]
+    exercises = challenge_program.get(current_day, [])
 
+    caption = f"🔥 **Челлендж: День {current_day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет!"
 
+    await message.reply_text(
+        caption,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("📹 Отправить отчет", callback_data="send_challenge_report")]]
+        )
+    )
 
-# Обработка отправки отчета для челленджа
-async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Обработка видео-отчета челленджа
+async def handle_challenge_video(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
 
+    if user_id in user_challenges:
+        current_day = user_challenges[user_id]["current_day"]
 
-    if user_id in user_waiting_for_video:
-        current_day = user_waiting_for_video[user_id]
-
-
-        # Отправляем видео в группу
         await context.bot.send_message(
             chat_id=GROUP_ID,
-            text=f"📹 Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
+            text=f"📹 Видео-отчет от {user_name} (ID: {user_id}) за день {current_day} челленджа."
         )
-        await context.bot.send_video(
-            chat_id=GROUP_ID,
-            video=update.message.video.file_id
-        )
+        await context.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
 
+        user_scores[user_id] += 60  # Начисляем баллы
 
-        user_reports_sent.setdefault(user_id, {})[current_day] = True
-        user_scores[user_id] += 60
-
-
-        # Удаляем user_waiting_for_video (но день не увеличиваем здесь!)
-        del user_waiting_for_video[user_id]
-
-
-        # Проверяем, не последний ли день
         if current_day < 5:
+            user_challenges[user_id]["current_day"] += 1  # Переход к следующему дню
             await update.message.reply_text(
                 f"✅ Отчет за день {current_day} принят!\n"
                 f"🎉 Ваши баллы: {user_scores[user_id]}.\n"
-                f"🔜 Готовы к следующему дню ({current_day + 1})?",
+                f"🔜 Завтра у вас {current_day + 1}-й день челленджа!",
                 reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(f"➡ Перейти ко дню {current_day + 1}", callback_data="next_day")]]
+                    [[InlineKeyboardButton(f"➡ Перейти ко дню {current_day + 1}", callback_data="start_challenge")]]
                 )
             )
         else:
-            user_status[user_id] = statuses[1]
             await update.message.reply_text(
-                f"🎉 Поздравляем! Вы завершили бесплатный курс!\n"
-                f"🏆 Ваши баллы: {user_scores[user_id]}.",
+                f"🎉 Поздравляем! Вы завершили челлендж!\n"
+                f"🏆 Ваши баллы: {user_scores[user_id]}.\n"
+                "Вы теперь настоящий Чемпион!",
                 reply_markup=main_menu()
             )
+            del user_challenges[user_id]  # Удаляем из списка челленджа
     else:
         await update.message.reply_text("❌ Я не жду видео. Выберите задание в меню.")
-# Покупка челленджа
-async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+# Обработчик кнопки "Челленджи"
+async def handle_challenges(update: Update, context: CallbackContext):
     query = update.callback_query
     user_id = query.from_user.id
 
-
-
-
-    if user_scores.get(user_id, 0) >= 300:
-        user_scores[user_id] -= 300
-        user_challenges[user_id] = True
-        await query.message.reply_text(
-            "✅ Доступ к челленджам открыт!\n"
-            "Теперь вы можете отправлять отчеты и получать баллы!"
-        )
+    if user_id in user_challenges:
+        await send_challenge_task(query.message, user_id)
     else:
-        await query.message.reply_text("Недостаточно баллов для покупки доступа!")
-
-
-
-
-# Обработка отправки отчета для челленджа
-async def send_challenge_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    user_waiting_for_challenge_video[user_id] = True
-    await query.message.reply_text("Отправьте видео-отчет для челленджа:")
-
-
-
+        buttons = [
+            [InlineKeyboardButton("🔥 Купить за 300 баллов", callback_data="buy_challenge")],
+            [InlineKeyboardButton("🔙 Назад", callback_data="back")]
+        ]
+        await query.message.reply_text(
+            "Челлендж длится **5 дней**.\n"
+            "Вы будете получать **упражнения и баллы за отчеты**.\n"
+            "Стоимость участия — **300 баллов**.\n\n"
+            "Хотите присоединиться?",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
 
 # Платный курс
 async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -574,11 +481,11 @@ async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption = f"👤 Ваш кабинет:\n\nСтатус: {status}\nБаллы: {score}\nПродолжайте тренироваться, чтобы улучшить статус и заработать больше баллов!"
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
-            photo=open("D:/IMG_9695.png", 'rb'),
+            photo=open("D:/https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true", 'rb'),
             caption=caption  # Это описание, которое будет под фото
         )
     except FileNotFoundError:
-        logger.error(f"Файл D:/IMG_9695.png не найден.")
+        logger.error(f"Файл https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true не найден.")
         await update.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
     except Exception as e:
         logger.error(f"Ошибка в /my_cabinet: {e}")
@@ -606,11 +513,11 @@ async def handle_about_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
-            photo=open("D:/photo_2025.jpg", 'rb'),  # Фото для "Обо мне" в формате jpg
+            photo=open("https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true", 'rb'),  # Фото для "Обо мне" в формате jpg
             caption=caption  # Это описание, которое будет под фото
         )
     except FileNotFoundError:
-        logger.error(f"Файл D:/photo_2025.jpg не найден.")
+        logger.error(f"Файл https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true не найден.")
         await update.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
     except Exception as e:
         logger.error(f"Ошибка в /about_me: {e}")
@@ -633,11 +540,11 @@ async def handle_earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
-            photo=open("D:/IMG_9699.png", 'rb'),
+            photo=open("https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true", 'rb'),
             caption=caption  # Это описание, которое будет под фото
         )
     except FileNotFoundError:
-        logger.error(f"Файл D:/IMG_9699.png не найден.")
+        logger.error(f"Файл https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true не найден.")
         await update.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
     except Exception as e:
         logger.error(f"Ошибка в /earn_points: {e}")
@@ -671,11 +578,11 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
-            photo=open("D:/IMG_9692.png", 'rb'),
+            photo=open("https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true", 'rb'),
             caption=caption  # Это описание, которое будет под фото
         )
     except FileNotFoundError:
-        logger.error(f"Файл D:/IMG_9692.png не найден.")
+        logger.error(f"Файл https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true не найден.")
         await update.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
     except Exception as e:
         logger.error(f"Ошибка в /spend_points: {e}")
@@ -697,8 +604,10 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_free_course, pattern="^free_course|next_day$"))
     application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)"))
     application.add_handler(CallbackQueryHandler(handle_challenges, pattern="start_challenge"))
+    application.add_handler(CallbackQueryHandler(handle_challenges, pattern="challenge_menu"))
     application.add_handler(CallbackQueryHandler(buy_challenge, pattern="buy_challenge"))
-    application.add_handler(CallbackQueryHandler(send_challenge_report, pattern="send_challenge_report"))
+    application.add_handler(CallbackQueryHandler(send_challenge_task, pattern="next_challenge_day"))
+    application.add_handler(MessageHandler(filters.VIDEO, handle_challenge_video))
     application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="paid_course"))
     application.add_handler(CallbackQueryHandler(confirm_payment, pattern="confirm_payment_.*"))
     application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="my_cabinet"))
@@ -706,7 +615,7 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="earn_points"))
     application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="spend_points"))
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="nutrition_menu"))
-
+    
 
     # Обработчики сообщений
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
