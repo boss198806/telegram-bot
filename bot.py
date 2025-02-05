@@ -181,16 +181,12 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Исправим открытие файла с использованием open()
 photo_url = photo_paths.get(current_day)
 try:
-    # Вместо open() используем ссылку напрямую
+async def send_photo(update, context):
     await context.bot.send_photo(
-    chat_id=update.effective_chat.id,
-    photo="https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg?raw=true",  # прямое фото
-    caption=caption,
-    parse_mode="Markdown",
-    reply_markup=InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
+        chat_id=update.effective_chat.id,
+        photo="https://example.com/photo.jpg",
+        caption="Описание фото"
     )
-)
 except Exception as e:
     logger.error(f"Ошибка при отправке изображения: {e}")
     await query.message.reply_text(
