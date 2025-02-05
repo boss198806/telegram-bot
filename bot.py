@@ -590,7 +590,6 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 
-
 # Главная функция
 def main():
     application = Application.builder().token(TOKEN).build()
@@ -630,7 +629,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
 
