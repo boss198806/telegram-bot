@@ -99,23 +99,20 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     user_id = query.from_user.id
 
-
-    # Проверяем, есть ли данные пользователя
+    # Если пользователь впервые нажал "Бесплатный курс", начинаем с 1 дня
     if user_id not in context.user_data:
         context.user_data[user_id] = {"current_day": 1}
 
-
-    # Если пользователь нажал "Следующий день", увеличиваем current_day
+    # Если нажали "Следующий день", увеличиваем current_day
     if query.data == "next_day":
         context.user_data[user_id]["current_day"] += 1
 
+    # Получаем текущий день курса
+    current_day = context.user_data[user_id]["current_day"]
 
-    # Теперь получаем обновленный current_day
-    current_day = context.user_data[user_id].get("current_day", 1)
-
-
+    # Если курс завершён
     if current_day > 5:
-        await query.message.reply_text("Вы завершили курс! 🎉", reply_markup=main_menu())
+        await query.message.reply_text("🎉 Вы завершили курс!", reply_markup=main_menu())
         return
 
 
@@ -130,60 +127,37 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
     # Программа тренировок (переставлены только дни 4 и 5)
+    # Программа тренировок
     course_program = {
-        1: [
-            "1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)",
+        1: ["1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)",
             "2️⃣ Ягодичный мост 3x30 [Видео](https://t.me/c/2241417709/381/382)",
-            "3️⃣ Велосипед 3x15 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"
-        ],
-        2: [
-            "1️⃣ Отжимания от пола 3x15 [Видео](https://t.me/c/2241417709/167/168)",
+            "3️⃣ Велосипед 3x15 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        2: ["1️⃣ Отжимания от пола 3x15 [Видео](https://t.me/c/2241417709/167/168)",
             "2️⃣ Лодочка прямые руки 3x30 [Видео](https://t.me/c/2241417709/395/396)",
-            "3️⃣ Полные подъёмы корпуса 3x20 [Видео](https://t.me/c/2241417709/274/275)"
-        ],
-        3: [
-            "1️⃣ Выпады назад 3x15 [Видео](https://t.me/c/2241417709/155/156)",
-            "2️⃣ Махи в бок с колен 3x20 (можно без резинки) [Видео](https://t.me/c/2241417709/385/386)",
-            "3️⃣ Косые с касанием пяток 3x15 на каждую [Видео](https://t.me/c/2241417709/282/283)"
-        ],
-        4: [  # Теперь тут упражнения с 5-го дня, но фото остается от 4-го дня
-            "1️⃣ Поочередные подъемы с гантелями в развороте 4x20 [Видео](https://t.me/c/2241417709/226/227)",
+            "3️⃣ Полные подъёмы корпуса 3x20 [Видео](https://t.me/c/2241417709/274/275)"],
+        3: ["1️⃣ Выпады назад 3x15 [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Махи в бок с колен 3x20 [Видео](https://t.me/c/2241417709/385/386)",
+            "3️⃣ Косые с касанием пяток 3x15 [Видео](https://t.me/c/2241417709/282/283)"],
+        4: ["1️⃣ Поочередные подъемы с гантелями в развороте 4x20 [Видео](https://t.me/c/2241417709/226/227)",
             "2️⃣ Узкие отжимания 3x15 [Видео](https://t.me/c/2241417709/256/257)",
-            "3️⃣ Планка 3x1 мин [Видео](https://t.me/c/2241417709/286/296)"
-        ],
-        5: [  # Теперь тут упражнения с 4-го дня, но фото остается от 5-го дня
-            "1️⃣ Присед со штангой (без штанги) 3x20 [Видео](https://t.me/c/2241417709/140/141)",
-            "2️⃣ Махи под 45 с резинкой (можно без нее) 3x20 [Видео](https://t.me/c/2241417709/339/340)",
-            "3️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"
-        ]
+            "3️⃣ Планка 3x1 мин [Видео](https://t.me/c/2241417709/286/296)"],
+        5: ["1️⃣ Присед со штангой 3x20 [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Махи под 45 с резинкой 3x20 [Видео](https://t.me/c/2241417709/339/340)",
+            "3️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"]
     }
 
+    exercises = "\n".join(course_program.get(current_day, []))
+    caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n{exercises}\n\nОтправьте видео-отчет!"
 
-    exercises = course_program.get(current_day, [])
-    caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день, чтобы получить баллы!"
-
-
-    # Проверяем, существует ли фото
-    photo_path = photo_paths.get(current_day)
-    try:
-        with open(photo_path, "rb") as photo:
-            await context.bot.send_photo(
-                chat_id=update.effective_chat.id,
-                photo=photo,
-                caption=caption,
-                parse_mode="Markdown",
-                reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
-                )
-            )
-    except FileNotFoundError:
-        logger.error(f"Файл {photo_path} не найден.")
-        await query.message.reply_text(
-            "Ошибка: изображение не найдено. Продолжайте без фото.",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
-            )
+    await context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=photo_paths[current_day],  # Загружаем фото **по ссылке**
+        caption=caption,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("📹 Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
         )
+    )
 # Обработка кнопки "Отправить отчет" для бесплатного курса
 async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -362,10 +336,11 @@ async def handle_challenge_video(update: Update, context: CallbackContext):
         await update.message.reply_text("❌ Я не жду видео. Выберите задание в меню.")
 
 # Обработчик кнопки "Челленджи"
-async def handle_challenges(update: Update, context: CallbackContext):
+aasync def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
 
+    # Если челлендж уже куплен, отправляем задание
     if user_id in user_challenges:
         await send_challenge_task(query.message, user_id)
     else:
@@ -380,6 +355,20 @@ async def handle_challenges(update: Update, context: CallbackContext):
             "Хотите присоединиться?",
             reply_markup=InlineKeyboardMarkup(buttons)
         )
+
+async def send_challenge_task(message, user_id):
+    current_day = user_challenges[user_id]["current_day"]
+    exercises = challenge_program.get(current_day, [])
+
+    caption = f"🔥 **Челлендж: День {current_day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет!"
+
+    await message.reply_text(
+        caption,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("📹 Отправить отчет", callback_data="send_challenge_report")]]
+        )
+    )
 
 # Платный курс
 async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
