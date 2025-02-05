@@ -2,7 +2,6 @@ import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-
 # Настройка логирования
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -10,11 +9,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
+# Используйте ваш токен
 TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"
 GROUP_ID = "-1002451371911"
 PHOTO_PATH = "https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg?raw=true"  # Укажите правильный путь к фото
-
 
 # Словари для хранения данных
 user_scores = {}
@@ -25,10 +23,8 @@ user_waiting_for_challenge_video = {}  # Для челленджей
 user_waiting_for_receipt = {}
 user_challenges = {}
 
-
 # Статусы
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
-
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -51,7 +47,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
         # Инициализируем данные нового пользователя
-        context.chat_data[user_id] = {"current_day": 1}
+        context.chat_data[user_id] = {"current_day_free_course": 1, "current_day_challenge": 1}
         user_scores[user_id] = user_scores.get(user_id, 0)  # Обнуляем баллы, если новый пользователь
         user_status[user_id] = statuses[0]
 
@@ -677,7 +673,7 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("Произошла ошибка. Пожалуйста, попробуйте позже.")
 
 
-# Главная функция
+# Запуск бота
 def main():
     application = Application.builder().token(TOKEN).build()
 
@@ -704,7 +700,6 @@ def main():
 
     print("Бот запущен и готов к работе.")
     application.run_polling()
-
 
 if __name__ == "__main__":
     main()
