@@ -336,7 +336,7 @@ async def handle_challenge_video(update: Update, context: CallbackContext):
         await update.message.reply_text("❌ Я не жду видео. Выберите задание в меню.")
 
 # Обработчик кнопки "Челленджи"
-aasync def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
 
