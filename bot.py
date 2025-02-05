@@ -595,8 +595,8 @@ async def handle_nutrition_menu(update: Update, context: CallbackContext):
     await update.callback_query.answer()
     await update.callback_query.message.reply_text("📋 Раздел 'Меню питания' пока в разработке.")
     async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    photo_id = update.message.photo[-1].file_id
-    await update.message.reply_text(f"Ваш file_id: {photo_id}")
+        photo_id = update.message.photo[-1].file_id
+        await update.message.reply_text(f"Ваш file_id: {photo_id}")
 
 def main():
     application = Application.builder().token(TOKEN).build()
