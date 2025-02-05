@@ -591,13 +591,15 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 # Главная функция
+async def handle_nutrition_menu(update: Update, context: CallbackContext):
+    await update.callback_query.answer()
+    await update.callback_query.message.reply_text("📋 Раздел 'Меню питания' пока в разработке.")
+
 def main():
     application = Application.builder().token(TOKEN).build()
-
-
+    
     # Обработчики команд
     application.add_handler(CommandHandler("start", start))
-
 
     # Обработчики кнопок
     application.add_handler(CallbackQueryHandler(handle_free_course, pattern="^free_course|next_day$"))
@@ -606,7 +608,6 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_challenges, pattern="challenge_menu"))
     application.add_handler(CallbackQueryHandler(buy_challenge, pattern="buy_challenge"))
     application.add_handler(CallbackQueryHandler(send_challenge_task, pattern="next_challenge_day"))
-    application.add_handler(MessageHandler(filters.VIDEO, handle_challenge_video))
     application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="paid_course"))
     application.add_handler(CallbackQueryHandler(confirm_payment, pattern="confirm_payment_.*"))
     application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="my_cabinet"))
@@ -614,18 +615,13 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="earn_points"))
     application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="spend_points"))
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="nutrition_menu"))
-    
 
     # Обработчики сообщений
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
     application.add_handler(MessageHandler(filters.PHOTO, handle_receipt))
 
-
     print("Бот запущен и готов к работе.")
-    application.run_polling()
-
-
-
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
