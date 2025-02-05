@@ -182,11 +182,11 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
 # Асинхронная функция
 async def send_photo(update, context):
     try:
-    await context.bot.send_photo(
-        chat_id=update.effective_chat.id,
-        photo="https://example.com/photo.jpg",
-        caption="Описание фото"
-    )
+        await context.bot.send_photo(
+         chat_id=update.effective_chat.id,
+         photo="https://example.com/photo.jpg",
+         caption="Описание фото"
+        )
 except Exception as e:
     logger.error(f"Ошибка при отправке изображения: {e}")
     await update.message.reply_text(
