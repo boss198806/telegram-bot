@@ -181,12 +181,20 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Исправим открытие файла с использованием open()
 photo_url = photo_paths.get(current_day)
 try:
+    # Вместо open() используем ссылку напрямую
+    # Объявляем функцию как асинхронную
 async def send_photo(update, context):
     await context.bot.send_photo(
         chat_id=update.effective_chat.id,
         photo="https://example.com/photo.jpg",
         caption="Описание фото"
     )
+    parse_mode="Markdown",
+    reply_markup=InlineKeyboardMarkup(
+        [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
+    )
+)
+
 except Exception as e:
     logger.error(f"Ошибка при отправке изображения: {e}")
     await query.message.reply_text(
