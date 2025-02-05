@@ -179,18 +179,20 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день, чтобы получить баллы!"
 
     # Исправим открытие файла с использованием open()
-photo_url = photo_paths.get(current_day)
-try:
-    # ваш код, который может вызвать исключение
-    await context.bot.send_photo(
-        chat_id=update.effective_chat.id,
-        photo="https://example.com/photo.jpg",
-        caption="Описание фото"
-    )
-except Exception as e:
-    logger.error(f"Ошибка при отправке изображения: {e}")
-    await update.message.reply_text(
-        "Ошибка: изображение не найдено. Продолжайте без фото.",
+# Асинхронная функция
+async def send_photo(update, context):
+    try:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://example.com/photo.jpg",  # Пример фото
+            caption="Описание фото"
+        )
+    except Exception as e:
+        # Логирование ошибки
+        logger.error(f"Ошибка при отправке изображения: {e}")
+        await update.message.reply_text(
+            "Ошибка: изображение не найдено. Продолжайте без фото."
+        )
         reply_markup=InlineKeyboardMarkup(
             [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
         )
