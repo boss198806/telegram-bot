@@ -196,7 +196,6 @@ async def send_photo(update, context):
         reply_markup=InlineKeyboardMarkup(
             [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
         )
-    )
 
 except Exception as e:
     logger.error(f"Ошибка при отправке изображения: {e}")
