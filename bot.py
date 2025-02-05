@@ -201,9 +201,9 @@ except Exception as e:
     logger.error(f"Ошибка при отправке изображения: {e}")
     await query.message.reply_text(
         "Ошибка: изображение не найдено. Продолжайте без фото.",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
-        )
+        reply_markup=InlineKeyboardMarkup([
+    [InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]
+])
     )
 # Обработка кнопки "Отправить отчет" для бесплатного курса
 async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
