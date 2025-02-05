@@ -583,7 +583,7 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def handle_nutrition_menu(update: Update, context: CallbackContext):
     await update.callback_query.answer()
     await update.callback_query.message.reply_text("📋 Раздел 'Меню питания' пока в разработке.")
-    async def handle_challenges(update: Update, context: CallbackContext)::
+    async def handle_challenges(update: Update, context: CallbackContext):
         photo_id = update.message.photo[-1].file_id
         await update.message.reply_text(f"Ваш file_id: {photo_id}")
 
