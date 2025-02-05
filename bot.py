@@ -183,18 +183,18 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def send_photo(update, context):
     try:
         await context.bot.send_photo(
-         chat_id=update.effective_chat.id,
-         photo="https://example.com/photo.jpg",
-         caption="Описание фото"
+            chat_id=update.effective_chat.id,
+            photo="https://example.com/photo.jpg",
+            caption="Описание фото"
         )
-except Exception as e:
-    logger.error(f"Ошибка при отправке изображения: {e}")
-    await update.message.reply_text(
-        "Ошибка: изображение не найдено. Продолжайте без фото.",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
+    except Exception as e:
+        logger.error(f"Ошибка при отправке изображения: {e}")
+        await update.message.reply_text(
+            "Ошибка: изображение не найдено. Продолжайте без фото.",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Отправить отчет", callback_data="send_report_day")]]
+            )
         )
-    )
 
 
 # Обработка кнопки "Отправить отчет" для бесплатного курса
