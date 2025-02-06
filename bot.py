@@ -271,11 +271,13 @@ async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # Обработка кнопки "Мой кабинет"
+# Обработка кнопки "Мой кабинет"
 async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
     score = user_scores.get(user_id, 0)
     status = user_status.get(user_id, statuses[0])
+
     # Составляем текст для кабинета
     caption = (
         f"👤 Ваш кабинет:\n\n"
@@ -283,6 +285,7 @@ async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Баллы: {score}\n"
         "Продолжайте тренироваться, чтобы улучшить статус и заработать больше баллов!"
     )
+
     try:
         # Отправляем фото для "Мой кабинет" с описанием
         await context.bot.send_photo(
@@ -294,7 +297,7 @@ async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Ошибка при отправке фото для 'Мой кабинет': {e}")
         await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
-# Челленджи
+        
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -387,7 +390,7 @@ def main():
     application.add_handler(CallbackQueryHandler(buy_challenge, pattern="buy_challenge"))
     application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="paid_course"))
     application.add_handler(CallbackQueryHandler(confirm_payment, pattern="confirm_payment_.*"))
-    application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="my_cabinet"))  # Здесь используется handle_my_cabinet
+    application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="my_cabinet"))  # Регистрация handle_my_cabinet
     application.add_handler(CallbackQueryHandler(handle_about_me, pattern="about_me"))
     application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="earn_points"))
     application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="spend_points"))
@@ -398,3 +401,6 @@ def main():
 
     print("Бот запущен и готов к работе.")
     application.run_polling()
+
+if __name__ == "__main__":
+    main()
