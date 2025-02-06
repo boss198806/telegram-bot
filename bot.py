@@ -20,6 +20,7 @@ TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"
 GROUP_ID = "-1002451371911"
 
 # Словари для хранения данных
+# Словари для хранения данных
 user_scores = {}
 user_status = {}
 user_reports_sent = {}
@@ -27,6 +28,8 @@ user_waiting_for_video = {}
 user_waiting_for_challenge_video = {}
 user_waiting_for_receipt = {}
 user_challenges = {}
+
+# Статусы пользователя
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
 # Главное меню
