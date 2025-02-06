@@ -270,6 +270,30 @@ async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text="Оплата подтверждена! Вам открыт доступ к платному курсу. 🎉"
     )
 
+# Обработка кнопки "Мой кабинет"
+async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    score = user_scores.get(user_id, 0)
+    status = user_status.get(user_id, statuses[0])
+    # Составляем текст для кабинета
+    caption = (
+        f"👤 Ваш кабинет:\n\n"
+        f"Статус: {status}\n"
+        f"Баллы: {score}\n"
+        "Продолжайте тренироваться, чтобы улучшить статус и заработать больше баллов!"
+    )
+    try:
+        # Отправляем фото для "Мой кабинет" с описанием
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true",
+            caption=caption,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке фото для 'Мой кабинет': {e}")
+        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
 # Челленджи
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -361,9 +385,9 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)"))
     application.add_handler(CallbackQueryHandler(handle_challenges, pattern="challenge_menu"))
     application.add_handler(CallbackQueryHandler(buy_challenge, pattern="buy_challenge"))
-    application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="paid_course"))  # Регистрация handle_paid_course
+    application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="paid_course"))
     application.add_handler(CallbackQueryHandler(confirm_payment, pattern="confirm_payment_.*"))
-    application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="my_cabinet"))
+    application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="my_cabinet"))  # Здесь используется handle_my_cabinet
     application.add_handler(CallbackQueryHandler(handle_about_me, pattern="about_me"))
     application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="earn_points"))
     application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="spend_points"))
@@ -374,7 +398,3 @@ def main():
 
     print("Бот запущен и готов к работе.")
     application.run_polling()
-
-
-if __name__ == "__main__":
-    main()
