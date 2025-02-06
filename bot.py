@@ -178,7 +178,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_reports_sent.setdefault(user_id, {})[current_day] = True
         user_scores[user_id] += 60
 
-        # Удаляем ожидание видео
+        # Удаляем текущее ожидание видео
         del user_waiting_for_video[user_id]
 
         # Проверяем, не последний ли день
@@ -187,6 +187,8 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data[user_id]["current_day"] += 1
             new_day = context.user_data[user_id]["current_day"]
 
+            # Готовимся к следующему дню
+            user_waiting_for_video[user_id] = new_day  # Включаем ожидание нового отчета
             await update.message.reply_text(
                 f"Отчет за день {current_day} принят! 🎉\n"
                 f"Ваши баллы: {user_scores[user_id]}.\n"
@@ -213,10 +215,8 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=GROUP_ID,
             video=update.message.video.file_id
         )
-
         user_scores[user_id] += 60
         del user_waiting_for_challenge_video[user_id]
-
         await update.message.reply_text(
             f"Отчет за челлендж принят! 🎉\n"
             f"Ваши баллы: {user_scores[user_id]}."
