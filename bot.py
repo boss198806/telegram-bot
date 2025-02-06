@@ -226,17 +226,32 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
 
 # Покупка челленджа
-async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
 
-    if user_scores.get(user_id, 0) >= 300:
-        user_scores[user_id] -= 300
-        user_challenges[user_id] = {"current_day": 1}
-        await query.message.reply_text("✅ Доступ к челленджам открыт!")
+    # Проверяем, имеет ли пользователь доступ к челленджам
+    if user_challenges.get(user_id):
+        # Если доступ уже куплен, показываем текущее задание
+        current_day = user_challenges[user_id]["current_day"]
         await send_challenge_task(query.message, user_id)
+    elif user_scores.get(user_id, 0) >= 300:
+        # Если баллов достаточно для покупки
+        buttons = [
+            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge")],
+            [InlineKeyboardButton("Назад", callback_data="back")]
+        ]
+        await query.message.reply_text(
+            "Доступ к челленджам стоит 300 баллов. Хотите приобрести?",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
     else:
-        await query.message.reply_text("Недостаточно баллов для покупки доступа!")
+        # Если баллов недостаточно
+        await query.message.reply_text(
+            f"Для доступа к челленджам нужно 300 баллов.\n"
+            f"У вас: {user_scores.get(user_id, 0)} баллов.\n"
+            "Продолжайте тренировки!"
+        )
 
 # Отправка задания для челленджа
 async def send_challenge_task(message: Update, user_id: int):
@@ -248,16 +263,9 @@ async def send_challenge_task(message: Update, user_id: int):
         caption,
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "Отправить отчет", callback_data=f"send_challenge_report_{current_day}"
-                    )
-                ]
-            ]
-        ),
+            [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_challenge_report_{current_day}")]]
+        )
     )
-
 # Программа для челленджей
 course_program_challenges = {
     1: [
