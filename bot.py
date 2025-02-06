@@ -225,32 +225,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
 
-# Челленджи
-async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-
-    if user_challenges.get(user_id):
-        current_day = user_challenges[user_id]["current_day"]
-        await send_challenge_task(query.message, user_id)
-    elif user_scores.get(user_id, 0) >= 300:
-        buttons = [
-            [
-                InlineKeyboardButton(
-                    "Купить доступ за 300 баллов", callback_data="buy_challenge"
-                )
-            ],
-            [InlineKeyboardButton("Назад", callback_data="back")],
-        ]
-        await query.message.reply_text(
-            "Доступ к челленджам стоит 300 баллов. Хотите приобрести?",
-            reply_markup=InlineKeyboardMarkup(buttons),
-        )
-    else:
-        await query.message.reply_text(
-            f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(user_id, 0)} баллов.\nПродолжайте тренировки!"
-        )
-
 # Покупка челленджа
 async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
