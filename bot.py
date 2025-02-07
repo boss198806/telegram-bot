@@ -226,6 +226,8 @@ async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
 
+    logger.info(f"User {user_id} pressed the challenge button.")
+
     if user_challenges.get(user_id):
         current_day = user_challenges[user_id]["current_day"]
         await send_challenge_task(query.message, user_id)
