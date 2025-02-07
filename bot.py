@@ -59,25 +59,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Ошибка в /start: {e}")
         await update.message.reply_text("Произошла ошибка. Пожалуйста, попробуйте позже.")
 
-# Обработка кнопки "Меню питания"
-async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.answer()
-    await update.callback_query.message.reply_text("📋 Раздел 'Меню питания' пока в разработке.")
-
 # Бесплатный курс
 async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-
     if user_id not in context.user_data:
         context.user_data[user_id] = {"current_day": 1}
-
-    # Убираем увеличение current_day при нажатии на кнопку "next_day"
-    # if query.data == "next_day":
-    #     context.user_data[user_id]["current_day"] += 1
-
     current_day = context.user_data[user_id].get("current_day", 1)
-
     if current_day > 5:
         await query.message.reply_text("Вы завершили курс! 🎉", reply_markup=main_menu())
         return
@@ -120,7 +108,6 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     exercises = course_program.get(current_day, [])
     caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
-
     photo_path = photo_paths.get(current_day)
     try:
         await context.bot.send_photo(
@@ -146,11 +133,9 @@ async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     user_id = query.from_user.id
     current_day = int(query.data.split("_")[-1])
-
     if user_reports_sent.get(user_id, {}).get(current_day):
         await query.message.reply_text(f"Вы уже отправили отчет за день {current_day}.")
         return
-
     user_waiting_for_video[user_id] = current_day
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день.")
 
@@ -158,10 +143,8 @@ async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
-
     if user_id in user_waiting_for_video:
         current_day = user_waiting_for_video[user_id]
-
         # Отправляем видео в группу
         await context.bot.send_message(
             chat_id=GROUP_ID,
@@ -171,20 +154,16 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=GROUP_ID,
             video=update.message.video.file_id
         )
-
         # Обновляем статистику
         user_reports_sent.setdefault(user_id, {})[current_day] = True
         user_scores[user_id] += 60
-
         # Удаляем текущее ожидание видео
         del user_waiting_for_video[user_id]
-
         # Проверяем, не последний ли день
         if current_day < 5:
             # Увеличиваем день
             context.user_data[user_id]["current_day"] += 1
             new_day = context.user_data[user_id]["current_day"]
-
             # Готовимся к следующему дню
             user_waiting_for_video[user_id] = new_day  # Включаем ожидание нового отчета
             await update.message.reply_text(
@@ -225,7 +204,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-
     if user_challenges.get(user_id):
         current_day = user_challenges[user_id]["current_day"]
         await send_challenge_task(query.message, user_id)
@@ -249,7 +227,6 @@ async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-
     if user_scores.get(user_id, 0) >= 300:
         user_scores[user_id] -= 300
         user_challenges[user_id] = {"current_day": 1}
@@ -263,7 +240,6 @@ async def send_challenge_task(message: Update, user_id: int):
     current_day = user_challenges[user_id]["current_day"]
     exercises = challenge_program.get(current_day, [])
     caption = f"💪 **Челлендж: День {current_day}** 💪\n\n" + "\n".join(exercises)
-
     await message.reply_text(
         caption,
         parse_mode="Markdown",
@@ -306,7 +282,6 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_id = query.from_user.id
     discount = min(user_scores.get(user_id, 0) * 2, 600)  # Максимальная скидка 600 рублей
     final_price = 2000 - discount
-
     await query.message.reply_text(
         f"📚 **Платный курс** 📚\n\n"
         f"Стоимость курса: 2000 рублей.\n"
@@ -316,22 +291,18 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"После оплаты отправьте чек для проверки.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]]),
     )
-
     user_waiting_for_receipt[user_id] = True
 
 # Обработка чека
 async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
-
     if user_id not in user_waiting_for_receipt:
         await update.message.reply_text("Я не жду чек от вас. Пожалуйста, выберите платный курс и отправьте чек.")
         return
-
     if not update.message.photo:
         await update.message.reply_text("Пожалуйста, отправьте фото чека.")
         return
-
     # Отправляем чек в группу
     await context.bot.send_message(
         chat_id=GROUP_ID,
@@ -351,7 +322,6 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = int(query.data.split("_")[-1])
-
     user_status[user_id] = statuses[2]  # Чемпион
     del user_waiting_for_receipt[user_id]  # Очищаем данные
     await context.bot.send_message(
@@ -365,14 +335,12 @@ async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     score = user_scores.get(user_id, 0)
     status = user_status.get(user_id, statuses[0])
-
     caption = (
         f"👤 Ваш кабинет:\n\n"
         f"Статус: {status}\n"
         f"Баллы: {score}\n"
         "Продолжайте тренироваться, чтобы улучшить статус и заработать больше баллов!"
     )
-
     try:
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
@@ -387,7 +355,6 @@ async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Обработка кнопки "Обо мне"
 async def handle_about_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-
     caption = (
         "👤 О тренере:\n\n"
         "Курочкин Евгений Витальевич\n"
@@ -400,7 +367,6 @@ async def handle_about_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "КМС - по бодибилдингу\n\n"
         "20 лет в фитнесе!"
     )
-
     try:
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
@@ -415,7 +381,6 @@ async def handle_about_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Обработка кнопки "Как заработать баллы"
 async def handle_earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-
     caption = (
         "💡 Как заработать баллы:\n\n"
         "1. Проходите бесплатный курс и отправляйте видео-отчеты.\n"
@@ -423,7 +388,6 @@ async def handle_earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "3. Приглашайте друзей и получайте баллы за их активность.\n"
         "4. Покупайте платный курс и получаете дополнительные баллы."
     )
-
     try:
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
@@ -440,7 +404,6 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
     query = update.callback_query
     user_id = query.from_user.id
     score = user_scores.get(user_id, 0)
-
     caption = (
         f"💰 Как потратить баллы:\n\n"
         f"У вас есть {score} баллов.\n"
@@ -449,7 +412,6 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
         "- Максимальная скидка - 600 рублей.\n"
         "- Другие привилегии в будущем!"
     )
-
     try:
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
@@ -490,4 +452,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
