@@ -60,67 +60,66 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Произошла ошибка. Пожалуйста, попробуйте позже.")
 
 # Обработка кнопки "Меню питания"
+async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    await update.callback_query.message.reply_text("📋 Раздел 'Меню питания' пока в разработке.")
+
+# Бесплатный курс
 async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
 
-    # Инициализация данных пользователя
     if user_id not in context.user_data:
         context.user_data[user_id] = {"current_day": 1}
 
-    # Увеличение дня при нажатии "Следующий день"
     if query.data == "next_day":
         context.user_data[user_id]["current_day"] += 1
 
-    # Текущий день
     current_day = context.user_data[user_id].get("current_day", 1)
 
-    # Проверка завершения курса
     if current_day > 5:
         await query.message.reply_text("Вы завершили курс! 🎉", reply_markup=main_menu())
         return
 
-    # Программа тренировок
     photo_paths = {
         1: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9647.PNG?raw=true",
         2: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9648.PNG?raw=true",
         3: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9649.PNG?raw=true",
         4: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9650.PNG?raw=true",
-        5: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9651.PNG?raw=true"
+        5: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9651.PNG?raw=true",
     }
 
     course_program = {
         1: [
             "1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)",
             "2️⃣ Ягодичный мост 3x30 [Видео](https://t.me/c/2241417709/381/382)",
-            "3️⃣ Велосипед 3x15 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"
+            "3️⃣ Велосипед 3x15 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)",
         ],
         2: [
             "1️⃣ Отжимания от пола 3x15 [Видео](https://t.me/c/2241417709/167/168)",
             "2️⃣ Лодочка прямые руки 3x30 [Видео](https://t.me/c/2241417709/395/396)",
-            "3️⃣ Полные подъёмы корпуса 3x20 [Видео](https://t.me/c/2241417709/274/275)"
+            "3️⃣ Полные подъёмы корпуса 3x20 [Видео](https://t.me/c/2241417709/274/275)",
         ],
         3: [
             "1️⃣ Выпады назад 3x15 [Видео](https://t.me/c/2241417709/155/156)",
             "2️⃣ Махи в бок с колен 3x20 [Видео](https://t.me/c/2241417709/385/386)",
-            "3️⃣ Косые с касанием пяток 3x15 [Видео](https://t.me/c/2241417709/282/283)"
+            "3️⃣ Косые с касанием пяток 3x15 [Видео](https://t.me/c/2241417709/282/283)",
         ],
         4: [
             "1️⃣ Поочередные подъемы с гантелями в развороте 4x20 [Видео](https://t.me/c/2241417709/226/227)",
             "2️⃣ Узкие отжимания 3x15 [Видео](https://t.me/c/2241417709/256/257)",
-            "3️⃣ Планка 3x1 мин [Видео](https://t.me/c/2241417709/286/296)"
+            "3️⃣ Планка 3x1 мин [Видео](https://t.me/c/2241417709/286/296)",
         ],
         5: [
             "1️⃣ Присед со штангой (без штанги) 3x20 [Видео](https://t.me/c/2241417709/140/141)",
             "2️⃣ Махи под 45 с резинкой (можно без нее) 3x20 [Видео](https://t.me/c/2241417709/339/340)",
-            "3️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"
-        ]
+            "3️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)",
+        ],
     }
 
     exercises = course_program.get(current_day, [])
     caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
 
-    # Отправка фото и текста
     photo_path = photo_paths.get(current_day)
     try:
         await context.bot.send_photo(
@@ -130,7 +129,7 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
-            )
+            ),
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке фото: {e}")
@@ -138,7 +137,7 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "Ошибка: изображение не найдено. Продолжайте без фото.",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]]
-            )
+            ),
         )
 
 # Отправка отчета
@@ -193,7 +192,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Готовы к следующему дню ({new_day})?",
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton(f"➡️ День {new_day}", callback_data="next_day")]]
-                )
+                ),
             )
         else:
             # Завершение курса
@@ -204,7 +203,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=main_menu()
             )
     elif user_id in user_waiting_for_challenge_video:
-        # Обработка челленджей
         await context.bot.send_message(
             chat_id=GROUP_ID,
             text=f"Видео-отчет от {user_name} (ID: {user_id}) за челлендж."
@@ -460,7 +458,7 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке фото для 'Как потратить баллы': {e}")
-        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
+        await query.message.reply_text("Произошла ошибка при загрузке fotografii. Пожалуйста, попробуйте позже.")
 
 # Главная функция
 def main():
