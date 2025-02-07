@@ -307,7 +307,7 @@ async def handle_send_challenge_report(update: Update, context: ContextTypes.DEF
 
     user_waiting_for_challenge_video[user_id] = current_day
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий челлендж.")
-    )
+    
 
 # Платный курс
 async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
