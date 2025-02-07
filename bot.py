@@ -176,7 +176,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_reports_sent.setdefault(user_id, {})[current_day] = True
         user_scores[user_id] += 60
         del user_waiting_for_video[user_id]
-        
+
         # Проверяем, не последний ли день
         if current_day < 5:
             context.user_data[user_id]["current_day"] += 1
@@ -212,10 +212,9 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         # Обновляем статистику
         user_scores[user_id] += 60
-        user_challenges[user_id].setdefault("reports_sent", {})[current_day] = True
         del user_waiting_for_challenge_video[user_id]
 
-        # Переход на следующий день
+        # Переход на следующий день челленджа
         if current_day < 5:
             user_challenges[user_id]["current_day"] += 1
             new_day = user_challenges[user_id]["current_day"]
