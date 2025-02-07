@@ -264,6 +264,64 @@ async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.message.reply_text("Недостаточно баллов для покупки доступа!")
 
+# Обработка платного курса
+async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    discount = min(user_scores.get(user_id, 0) * 2, 600)  # Максимальная скидка 600 рублей
+    final_price = 2000 - discount
+
+    await query.message.reply_text(
+        f"📚 **Платный курс** 📚\n\n"
+        f"Стоимость курса: 2000 рублей.\n"
+        f"Ваша скидка: {discount} рублей.\n"
+        f"Итоговая сумма: {final_price} рублей.\n\n"
+        f"Переведите сумму на карту: 89236950304 (Яндекс Банк).\n"
+        f"После оплаты отправьте чек для проверки.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]]),
+    )
+    user_waiting_for_receipt[user_id] = True
+
+# Обработка чека
+async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_name = update.message.from_user.first_name
+
+    if user_id not in user_waiting_for_receipt:
+        await update.message.reply_text("Я не жду чек от вас. Пожалуйста, выберите платный курс и отправьте чек.")
+        return
+
+    if not update.message.photo:
+        await update.message.reply_text("Пожалуйста, отправьте фото чека.")
+        return
+
+    # Отправляем чек в группу
+    await context.bot.send_message(
+        chat_id=GROUP_ID,
+        text=f"Чек от {user_name} (ID: {user_id}). Подтвердите оплату.",
+    )
+    photo_file_id = update.message.photo[-1].file_id
+    await context.bot.send_photo(
+        chat_id=GROUP_ID,
+        photo=photo_file_id,
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Подтвердить", callback_data=f"confirm_payment_{user_id}")]]
+        ),
+    )
+    await update.message.reply_text("Чек отправлен на проверку. Ожидайте подтверждения.")
+
+# Подтверждение оплаты
+async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = int(query.data.split("_")[-1])
+
+    user_status[user_id] = statuses[2]  # Чемпион
+    del user_waiting_for_receipt[user_id]  # Очищаем данные
+    await context.bot.send_message(
+        chat_id=user_id,
+        text="Оплата подтверждена! Вам открыт доступ к платному курсу. 🎉",
+    )
+
 # Отправка задания для челленджа
 async def send_challenge_task(message: Update, user_id: int):
     current_day = user_challenges[user_id]["current_day"]
@@ -328,22 +386,22 @@ def main():
     # Обработчики кнопок
     application.add_handler(CallbackQueryHandler(handle_free_course, pattern="^free_course|next_day$"))
     application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)"))
-    application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"send_challenge_report_(\d+)"))
+    application.add_handler(CallbackQueryHandler(handle_challenges, pattern="challenge_menu"))
     application.add_handler(CallbackQueryHandler(buy_challenge, pattern="buy_challenge"))
-    application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="paid_course"))
+    application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="paid_course"))  # Добавлено
     application.add_handler(CallbackQueryHandler(confirm_payment, pattern="confirm_payment_.*"))
     application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="my_cabinet"))
     application.add_handler(CallbackQueryHandler(handle_about_me, pattern="about_me"))
     application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="earn_points"))
     application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="spend_points"))
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="nutrition_menu"))
+    application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"send_challenge_report_(\d+)"))  # Добавлено
 
     # Обработчики сообщений
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
-    application.add_handler(MessageHandler(filters.PHOTO, handle_receipt))
+    application.add_handler(MessageHandler(filters.PHOTO, handle_receipt))  # Добавлено
 
     print("Бот запущен и готов к работе.")
     application.run_polling()
-
 if __name__ == "__main__":
     main()
