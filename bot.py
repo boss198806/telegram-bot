@@ -499,6 +499,7 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
 
 # Главная функция
+# Главная функция
 def main():
     application = Application.builder().token(TOKEN).build()
 
@@ -510,7 +511,6 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)"))
     application.add_handler(CallbackQueryHandler(handle_challenges, pattern="challenge_menu"))
     application.add_handler(CallbackQueryHandler(buy_challenge, pattern="buy_challenge"))
-    application.add_handler(CallbackQueryHandler(handle_next_challenge_day, pattern=r"next_challenge_day_(\d+)"))
     application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="paid_course"))
     application.add_handler(CallbackQueryHandler(confirm_payment, pattern="confirm_payment_.*"))
     application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="my_cabinet"))
@@ -518,6 +518,7 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="earn_points"))
     application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="spend_points"))
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="nutrition_menu"))
+    application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"send_challenge_report_(\d+)"))
 
     # Обработчики сообщений
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
