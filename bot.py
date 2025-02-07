@@ -141,6 +141,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Обработка видео для бесплатного курса
     if user_id in user_waiting_for_video:
         current_day = user_waiting_for_video[user_id]
+        # Отправляем видео в группу
         await context.bot.send_message(
             chat_id=GROUP_ID,
             text=f"Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
@@ -149,10 +150,13 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=GROUP_ID,
             video=update.message.video.file_id
         )
+
+        # Обновляем статистику
         user_reports_sent.setdefault(user_id, {})[current_day] = True
         user_scores[user_id] += 60
         del user_waiting_for_video[user_id]
 
+        # Переход на следующий день
         if current_day < 5:
             context.user_data[user_id]["current_day"] += 1
             new_day = context.user_data[user_id]["current_day"]
@@ -172,10 +176,10 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Ваши баллы: {user_scores[user_id]}.",
                 reply_markup=main_menu(),
             )
-
     # Обработка видео для челленджей
     elif user_id in user_waiting_for_challenge_video:
         current_day = user_waiting_for_challenge_video[user_id]
+        # Отправляем видео в группу
         await context.bot.send_message(
             chat_id=GROUP_ID,
             text=f"Видео-отчет от {user_name} (ID: {user_id}) за челлендж день {current_day}."
@@ -184,15 +188,18 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=GROUP_ID,
             video=update.message.video.file_id
         )
+
+        # Обновляем статистику
         user_scores[user_id] += 60
         del user_waiting_for_challenge_video[user_id]
 
+        # Переход на следующий день
         if current_day < 5:
             user_challenges[user_id]["current_day"] += 1
             user_challenges[user_id].setdefault("reports_sent", {})[current_day] = True
             new_day = user_challenges[user_id]["current_day"]
             user_waiting_for_challenge_video[user_id] = new_day
-            await send_challenge_task(update.message, user_id)
+            await send_challenge_task(update.message, user_id)  # Отправляем программу следующего дня
             await update.message.reply_text(
                 f"Отчет за челлендж день {current_day} принят! 🎉\n"
                 f"Ваши баллы: {user_scores[user_id]}.\n"
