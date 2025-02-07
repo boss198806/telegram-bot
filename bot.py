@@ -67,6 +67,9 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if user_id not in context.user_data:
         context.user_data[user_id] = {"current_day": 1}
 
+    if query.data == "next_day":
+        context.user_data[user_id]["current_day"] += 1
+
     current_day = context.user_data[user_id].get("current_day", 1)
 
     if current_day > 5:
@@ -172,12 +175,9 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Проверяем, не последний ли день
         if current_day < 5:
-            # Увеличиваем день
             context.user_data[user_id]["current_day"] += 1
             new_day = context.user_data[user_id]["current_day"]
-
-            # Готовимся к следующему дню
-            user_waiting_for_video[user_id] = new_day  # Включаем ожидание нового отчета
+            user_waiting_for_video[user_id] = new_day
             await update.message.reply_text(
                 f"Отчет за день {current_day} принят! 🎉\n"
                 f"Ваши баллы: {user_scores[user_id]}.\n"
@@ -187,7 +187,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ),
             )
         else:
-            # Завершение курса
             user_status[user_id] = statuses[1]
             await update.message.reply_text(
                 f"Поздравляем! Вы завершили бесплатный курс! 🎉\n"
@@ -200,7 +199,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Отправляем видео в группу
         await context.bot.send_message(
             chat_id=GROUP_ID,
-            text=f"Челлендж видео от {user_name} (ID: {user_id}) за день {current_day}."
+            text=f"Видео-отчет от {user_name} (ID: {user_id}) за челлендж."
         )
         await context.bot.send_video(
             chat_id=GROUP_ID,
@@ -213,10 +212,10 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Обновление прогресса
         user_challenges[user_id]["current_day"] += 1
         new_day = user_challenges[user_id]["current_day"]
+
         del user_waiting_for_challenge_video[user_id]
 
         if new_day <= 5:
-            # Отправляем следующий день
             await send_challenge_task(update.message, user_id)
         else:
             await update.message.reply_text(
@@ -264,64 +263,6 @@ async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.message.reply_text("Недостаточно баллов для покупки доступа!")
 
-# Обработка платного курса
-async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    discount = min(user_scores.get(user_id, 0) * 2, 600)  # Максимальная скидка 600 рублей
-    final_price = 2000 - discount
-
-    await query.message.reply_text(
-        f"📚 **Платный курс** 📚\n\n"
-        f"Стоимость курса: 2000 рублей.\n"
-        f"Ваша скидка: {discount} рублей.\n"
-        f"Итоговая сумма: {final_price} рублей.\n\n"
-        f"Переведите сумму на карту: 89236950304 (Яндекс Банк).\n"
-        f"После оплаты отправьте чек для проверки.",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]]),
-    )
-    user_waiting_for_receipt[user_id] = True
-
-# Обработка чека
-async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    user_name = update.message.from_user.first_name
-
-    if user_id not in user_waiting_for_receipt:
-        await update.message.reply_text("Я не жду чек от вас. Пожалуйста, выберите платный курс и отправьте чек.")
-        return
-
-    if not update.message.photo:
-        await update.message.reply_text("Пожалуйста, отправьте фото чека.")
-        return
-
-    # Отправляем чек в группу
-    await context.bot.send_message(
-        chat_id=GROUP_ID,
-        text=f"Чек от {user_name} (ID: {user_id}). Подтвердите оплату.",
-    )
-    photo_file_id = update.message.photo[-1].file_id
-    await context.bot.send_photo(
-        chat_id=GROUP_ID,
-        photo=photo_file_id,
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Подтвердить", callback_data=f"confirm_payment_{user_id}")]]
-        ),
-    )
-    await update.message.reply_text("Чек отправлен на проверку. Ожидайте подтверждения.")
-
-# Подтверждение оплаты
-async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = int(query.data.split("_")[-1])
-
-    user_status[user_id] = statuses[2]  # Чемпион
-    del user_waiting_for_receipt[user_id]  # Очищаем данные
-    await context.bot.send_message(
-        chat_id=user_id,
-        text="Оплата подтверждена! Вам открыт доступ к платному курсу. 🎉",
-    )
-
 # Отправка задания для челленджа
 async def send_challenge_task(message: Update, user_id: int):
     current_day = user_challenges[user_id]["current_day"]
@@ -363,18 +304,170 @@ async def send_challenge_task(message: Update, user_id: int):
         ),
     )
 
-# Обработка отправки отчетов для челленджей
-async def handle_send_challenge_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Обработка кнопки "Мой кабинет"
+async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    current_day = int(query.data.split("_")[-1])
+    score = user_scores.get(user_id, 0)
+    status = user_status.get(user_id, statuses[0])
 
-    if user_challenges.get(user_id, {}).get("current_day") != current_day:
-        await query.message.reply_text("Вы уже отправили отчет за этот день.")
+    caption = (
+        f"👤 Ваш кабинет:\n\n"
+        f"Статус: {status}\n"
+        f"Баллы: {score}\n"
+        "Продолжайте тренироваться, чтобы улучшить статус и заработать больше баллов!"
+    )
+
+    try:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true",
+            caption=caption,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке фото для 'Мой кабинет': {e}")
+        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
+
+# Обработка кнопки "Обо мне"
+async def handle_about_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+
+    caption = (
+        "👤 О тренере:\n\n"
+        "Курочкин Евгений Витальевич\n"
+        "Общий тренировочный стаж - 20 лет\n"
+        "Стаж работы - 15 лет\n"
+        "МС - по становой тяге\n"
+        "МС - по жиму штанги лежа\n"
+        "Судья - федеральной категории\n"
+        "Организатор соревнований\n"
+        "КМС - по бодибилдингу\n\n"
+        "20 лет в фитнесе!"
+    )
+
+    try:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true",
+            caption=caption,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке фото для 'Обо мне': {e}")
+        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
+
+# Обработка кнопки "Как заработать баллы"
+async def handle_earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+
+    caption = (
+        "💡 Как заработать баллы:\n\n"
+        "1. Проходите бесплатный курс и отправляйте видео-отчеты.\n"
+        "2. Участвуйте в челленджах и отправляйте видео-отчеты.\n"
+        "3. Приглашайте друзей и получайте баллы за их активность.\n"
+        "4. Покупайте платный курс и получаете дополнительные баллы."
+    )
+
+    try:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true",
+            caption=caption,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке фото для 'Как заработать баллы': {e}")
+        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
+
+# Обработка кнопки "Как потратить баллы"
+async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    score = user_scores.get(user_id, 0)
+
+    caption = (
+        f"💰 Как потратить баллы:\n\n"
+        f"У вас есть {score} баллов.\n"
+        "Вы можете потратить баллы на:\n"
+        "- Скидку при покупке платного курса (1 балл = 2 рубля).\n"
+        "- Максимальная скидка - 600 рублей.\n"
+        "- Другие привилегии в будущем!"
+    )
+
+    try:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true",
+            caption=caption,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке фото для 'Как потратить баллы': {e}")
+        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
+
+# Обработка платного курса
+async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    discount = min(user_scores.get(user_id, 0) * 2, 600)
+    final_price = 2000 - discount
+
+    await query.message.reply_text(
+        f"📚 **Платный курс** 📚\n\n"
+        f"Стоимость курса: 2000 рублей.\n"
+        f"Ваша скидка: {discount} рублей.\n"
+        f"Итоговая сумма: {final_price} рублей.\n\n"
+        f"Переведите сумму на карту: 89236950304 (Яндекс Банк).\n"
+        f"После оплаты отправьте чек для проверки.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]]),
+    )
+
+    user_waiting_for_receipt[user_id] = True
+
+# Обработка чека
+async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_name = update.message.from_user.first_name
+
+    if user_id not in user_waiting_for_receipt:
+        await update.message.reply_text("Я не жду чек от вас. Пожалуйста, выберите платный курс и отправьте чек.")
         return
 
-    user_waiting_for_challenge_video[user_id] = current_day
-    await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий челлендж.")
+    if not update.message.photo:
+        await update.message.reply_text("Пожалуйста, отправьте фото чека.")
+        return
+
+    await context.bot.send_message(
+        chat_id=GROUP_ID,
+        text=f"Чек от {user_name} (ID: {user_id}). Подтвердите оплату.",
+    )
+    photo_file_id = update.message.photo[-1].file_id
+    await context.bot.send_photo(
+        chat_id=GROUP_ID,
+        photo=photo_file_id,
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Подтвердить", callback_data=f"confirm_payment_{user_id}")]]
+        ),
+    )
+    await update.message.reply_text("Чек отправлен на проверку. Ожидайте подтверждения.")
+
+# Подтверждение оплаты
+async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = int(query.data.split("_")[-1])
+
+    user_status[user_id] = statuses[2]  # Чемпион
+    del user_waiting_for_receipt[user_id]  # Очищаем данные
+    await context.bot.send_message(
+        chat_id=user_id,
+        text="Оплата подтверждена! Вам открыт доступ к платному курсу. 🎉",
+    )
+
+# Обработка кнопки "Меню питания"
+async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    await update.callback_query.message.reply_text("📋 Раздел 'Меню питания' пока в разработке.")
 
 # Главная функция
 def main():
@@ -388,20 +481,20 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)"))
     application.add_handler(CallbackQueryHandler(handle_challenges, pattern="challenge_menu"))
     application.add_handler(CallbackQueryHandler(buy_challenge, pattern="buy_challenge"))
-    application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="paid_course"))  # Добавлено
+    application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="paid_course"))
     application.add_handler(CallbackQueryHandler(confirm_payment, pattern="confirm_payment_.*"))
-    application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="my_cabinet"))
+    application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="my_cabinet"))  # Регистрация handle_my_cabinet
     application.add_handler(CallbackQueryHandler(handle_about_me, pattern="about_me"))
     application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="earn_points"))
     application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="spend_points"))
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="nutrition_menu"))
-    application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"send_challenge_report_(\d+)"))  # Добавлено
 
     # Обработчики сообщений
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
-    application.add_handler(MessageHandler(filters.PHOTO, handle_receipt))  # Добавлено
+    application.add_handler(MessageHandler(filters.PHOTO, handle_receipt))
 
     print("Бот запущен и готов к работе.")
     application.run_polling()
+
 if __name__ == "__main__":
     main()
