@@ -152,9 +152,6 @@ async def handle_send_challenge_report(update: Update, context: ContextTypes.DEF
         await query.message.reply_text(f"Вы уже отправили отчет за день {current_day} челленджа.")
         return
 
-    # Отправляем задание для текущего дня
-    await send_challenge_task(query.message, user_id)
-
     # Устанавливаем флаг ожидания видео-отчета для челленджа
     user_waiting_for_challenge_video[user_id] = current_day
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день челленджа.")
