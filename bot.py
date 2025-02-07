@@ -423,6 +423,25 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
         logger.error(f"Ошибка при отправке фото для 'Как потратить баллы': {e}")
         await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
 
+# Обработка кнопки "Меню питания"
+async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    caption = (
+        "📋 Раздел 'Меню питания' пока в разработке.\n\n"
+        "Здесь будут полезные советы по питанию, рецепты и планы питания."
+    )
+    try:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/nutrition_menu.jpg?raw=true",
+            caption=caption,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке фото для 'Меню питания': {e}")
+        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
+
 # Главная функция
 def main():
     application = Application.builder().token(TOKEN).build()
@@ -441,7 +460,7 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_about_me, pattern="about_me"))
     application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="earn_points"))
     application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="spend_points"))
-    application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="nutrition_menu"))
+    application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="nutrition_menu"))  # Добавлен обработчик
 
     # Обработчики сообщений
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
