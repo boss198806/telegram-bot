@@ -265,6 +265,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Переход на следующий день
         if current_day < 5:
             user_challenges[user_id]["current_day"] += 1
+            user_challenges[user_id].setdefault("reports_sent", {})[current_day] = True
             new_day = user_challenges[user_id]["current_day"]
             user_waiting_for_challenge_video[user_id] = new_day
             await send_challenge_task(update.message, user_id)  # Отправляем программу следующего дня
@@ -278,7 +279,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Поздравляем! Вы завершили челлендж! 🎉",
                 reply_markup=main_menu(),
             )
-
     else:
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
 # Челленджи
@@ -326,7 +326,7 @@ async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     if user_scores.get(user_id, 0) >= 300:
         user_scores[user_id] -= 300
-        user_challenges[user_id] = {"current_day": 1}
+        user_challenges[user_id] = {"current_day": 1, "reports_sent": {}}
         await query.message.reply_text("✅ Доступ к челленджам открыт!")
         await send_challenge_task(query.message, user_id)
     else:
