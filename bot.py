@@ -160,7 +160,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.message.from_user.first_name
 
     # Обработка видео отчетов для челленджей
-elif user_id in user_waiting_for_challenge_video:
+ elif user_id in user_waiting_for_challenge_video:
     current_day = user_challenges[user_id]["current_day"]
     
     # Отправляем видео в группу
