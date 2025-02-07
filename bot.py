@@ -262,23 +262,19 @@ async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # Обработка кнопки "Отправить отчет" для челленджей
-async def handle_send_challenge_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
     current_day = int(query.data.split("_")[-1])
 
     # Проверяем, не отправлен ли уже отчет за этот день
-    if user_challenges.get(user_id, {}).get("reports_sent", {}).get(current_day):
-        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day} челленджа.")
+    if user_reports_sent.get(user_id, {}).get(current_day):
+        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day}.")
         return
 
-    # Устанавливаем флаг ожидания видео-отчета для челленджа
-    user_waiting_for_challenge_video[user_id] = current_day
-    await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день челленджа.")
-
-    # Устанавливаем флаг ожидания видео-отчета для челленджа
-    user_waiting_for_challenge_video[user_id] = current_day
-    await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день челленджа.")
+    # Устанавливаем флаг ожидания видео-отчета
+    user_waiting_for_video[user_id] = current_day
+    await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день.")
 # Покупка челленджа
 # Покупка челленджа
 async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -521,7 +517,6 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="earn_points"))
     application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="spend_points"))
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="nutrition_menu"))
-    application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"send_challenge_report_(\d+)"))
 
     # Обработчики сообщений
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
