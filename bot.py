@@ -204,7 +204,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
     # Обработка видео для челленджей
-    async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
 
