@@ -194,7 +194,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             # Завершение курса и переход к челленджам
             user_status[user_id] = statuses[1]
-            user_challenges[user_id] = {"current_day": 1}
             await update.message.reply_text(
                 f"Поздравляем! Вы завершили бесплатный курс! 🎉\n"
                 f"Ваши баллы: {user_scores[user_id]}.\n"
