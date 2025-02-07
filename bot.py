@@ -159,42 +159,66 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
 
-    # Обработка видео отчетов для челленджей
- elif user_id in user_waiting_for_challenge_video:
-    current_day = user_challenges[user_id]["current_day"]
-    
-    # Отправляем видео в группу
-    await context.bot.send_message(
-        chat_id=GROUP_ID,
-        text=f"Видео-отчет от {user_name} (ID: {user_id}) за челлендж день {current_day}."
-    )
-    await context.bot.send_video(
-        chat_id=GROUP_ID,
-        video=update.message.video.file_id
-    )
-    
-    # Обновляем статистику
-    user_scores[user_id] += 60
-    del user_waiting_for_challenge_video[user_id]
-    
-    # Проверяем, не последний ли день челленджа
-    if current_day < 5:
-        user_challenges[user_id]["current_day"] += 1
-        new_day = user_challenges[user_id]["current_day"]
-        user_waiting_for_challenge_video[user_id] = new_day
-        await update.message.reply_text(
-            f"Отчет за челлендж день {current_day} принят! 🎉\n"
-            f"Ваши баллы: {user_scores[user_id]}.\n"
-            f"Готовы к следующему дню ({new_day})?",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton(f"➡️ День {new_day}", callback_data=f"next_challenge_day_{new_day}")]]
-            ),
+    if user_id in user_waiting_for_video:
+        current_day = user_waiting_for_video[user_id]
+        # Отправляем видео в группу
+        await context.bot.send_message(
+            chat_id=GROUP_ID,
+            text=f"Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
         )
+        await context.bot.send_video(
+            chat_id=GROUP_ID,
+            video=update.message.video.file_id
+        )
+        # Обновляем статистику
+        user_reports_sent.setdefault(user_id, {})[current_day] = True
+        user_scores[user_id] += 60
+        # Удаляем текущее ожидание видео
+        del user_waiting_for_video[user_id]
+        # Проверяем, не последний ли день
+        if current_day < 5:
+            # Увеличиваем день
+            context.user_data[user_id]["current_day"] += 1
+            new_day = context.user_data[user_id]["current_day"]
+            # Готовимся к следующему дню
+            user_waiting_for_video[user_id] = new_day  # Включаем ожидание нового отчета
+            await update.message.reply_text(
+                f"Отчет за день {current_day} принят! 🎉\n"
+                f"Ваши баллы: {user_scores[user_id]}.\n"
+                f"Готовы к следующему дню ({new_day})?",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton(f"➡️ День {new_day}", callback_data="next_day")]]
+                ),
+            )
+        else:
+            # Завершение курса
+            user_status[user_id] = statuses[1]
+            await update.message.reply_text(
+                f"Поздравляем! Вы завершили бесплатный курс! 🎉\n"
+                f"Ваши баллы: {user_scores[user_id]}.",
+                reply_markup=main_menu(),
+            )
+
+    elif user_id in user_waiting_for_challenge_video:
+        # Отправляем видео в группу для челленджа
+        await context.bot.send_message(
+            chat_id=GROUP_ID,
+            text=f"Видео-отчет от {user_name} (ID: {user_id}) за челлендж."
+        )
+        await context.bot.send_video(
+            chat_id=GROUP_ID,
+            video=update.message.video.file_id
+        )
+        # Обновляем статистику
+        user_scores[user_id] += 60
+        del user_waiting_for_challenge_video[user_id]
+        await update.message.reply_text(
+            f"Отчет за челлендж принят! 🎉\n"
+            f"Ваши баллы: {user_scores[user_id]}."
+        )
+
     else:
-        await update.message.reply_text(
-            "Поздравляем! Вы завершили челлендж! 🎉",
-            reply_markup=main_menu(),
-        )
+        await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
         
 # Челленджи
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
