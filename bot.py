@@ -214,7 +214,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_scores[user_id] += 60
         del user_waiting_for_challenge_video[user_id]
 
-        # Переход на следующий день челленджа
+        # Переход на следующий день
         if current_day < 5:
             user_challenges[user_id]["current_day"] += 1
             new_day = user_challenges[user_id]["current_day"]
@@ -265,12 +265,12 @@ async def handle_send_challenge_report(update: Update, context: ContextTypes.DEF
     query = update.callback_query
     user_id = query.from_user.id
     current_day = int(query.data.split("_")[-1])
-    
+
     # Проверяем, не отправлен ли уже отчет за этот день
     if user_challenges.get(user_id, {}).get("reports_sent", {}).get(current_day):
         await query.message.reply_text(f"Вы уже отправили отчет за день {current_day} челленджа.")
         return
-    
+
     # Устанавливаем флаг ожидания видео-отчета для челленджа
     user_waiting_for_challenge_video[user_id] = current_day
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день челленджа.")
@@ -279,22 +279,12 @@ async def handle_send_challenge_report(update: Update, context: ContextTypes.DEF
 async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-
-    # Проверяем баллы пользователя
     if user_scores.get(user_id, 0) >= 300:
-        # Списание баллов
         user_scores[user_id] -= 300
-
-        # Инициализация челленджа для пользователя
         user_challenges[user_id] = {"current_day": 1}
-
-        # Отправляем сообщение о успешной покупке
         await query.message.reply_text("✅ Доступ к челленджам открыт!")
-
-        # Отправляем задание за первый день
         await send_challenge_task(query.message, user_id)
     else:
-        # Если недостаточно баллов
         await query.message.reply_text("Недостаточно баллов для покупки доступа!")
         
 async def handle_next_challenge_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
