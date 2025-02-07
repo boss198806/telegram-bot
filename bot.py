@@ -204,22 +204,32 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=main_menu(),
             )
     elif user_id in user_waiting_for_challenge_video:
+        current_day = user_waiting_for_challenge_video[user_id]
         await context.bot.send_message(
             chat_id=GROUP_ID,
-            text=f"Видео-отчет от {user_name} (ID: {user_id}) за челлендж."
+            text=f"Челлендж видео от {user_name} (ID: {user_id}) за день {current_day}."
         )
         await context.bot.send_video(
             chat_id=GROUP_ID,
             video=update.message.video.file_id
         )
+        # Начисление баллов
         user_scores[user_id] += 60
+        
+        # Обновление прогресса
+        user_challenges[user_id]["current_day"] += 1
+        new_day = user_challenges[user_id]["current_day"]
         del user_waiting_for_challenge_video[user_id]
-        await update.message.reply_text(
-            f"Отчет за челлендж принят! 🎉\n"
-            f"Ваши баллы: {user_scores[user_id]}."
-        )
-    else:
-        await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
+
+        if new_day <= 5:
+            # Отправляем следующий день
+            await send_challenge_task(update.message, user_id)
+        else:
+            await update.message.reply_text(
+                "🎉 Вы завершили все челленджи!",
+                reply_markup=main_menu()
+            )
+            del user_challenges[user_id]
 
 # Челленджи
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -259,21 +269,12 @@ async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Недостаточно баллов для покупки доступа!")
 
 # Отправка задания для челленджа
-async def send_challenge_task(message: Update, user_id: int):
-    current_day = user_challenges[user_id]["current_day"]
-    exercises = challenge_program.get(current_day, [])
-    caption = f"💪 **Челлендж: День {current_day}** 💪\n\n" + "\n".join(exercises)
-
-    await message.reply_text(
-        caption,
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Отправить отчет", callback_data=f"send_challenge_report_{current_day}")]]
-        ),
-    )
-
-# Программа для челленджей
-challenge_program = {
+async def handle_send_challenge_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    current_day = int(query.data.split("_")[-1])
+    
+    challenge_program = {
     1: [
         "1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
         "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
@@ -299,6 +300,14 @@ challenge_program = {
         "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)",
     ],
 }
+    
+    if user_challenges.get(user_id, {}).get("current_day") != current_day:
+        await query.message.reply_text("Вы уже отправили отчет за этот день.")
+        return
+
+    user_waiting_for_challenge_video[user_id] = current_day
+    await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий челлендж.")
+    )
 
 # Платный курс
 async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -471,7 +480,7 @@ def main():
     # Обработчики кнопок
     application.add_handler(CallbackQueryHandler(handle_free_course, pattern="^free_course|next_day$"))
     application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)"))
-    application.add_handler(CallbackQueryHandler(handle_challenges, pattern="challenge_menu"))
+    application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"send_challenge_report_(\d+)"))
     application.add_handler(CallbackQueryHandler(buy_challenge, pattern="buy_challenge"))
     application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="paid_course"))
     application.add_handler(CallbackQueryHandler(confirm_payment, pattern="confirm_payment_.*"))
