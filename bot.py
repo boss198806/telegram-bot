@@ -72,8 +72,9 @@ async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if user_id not in context.user_data:
         context.user_data[user_id] = {"current_day": 1}
 
-    if query.data == "next_day":
-        context.user_data[user_id]["current_day"] += 1
+    # Убираем увеличение current_day при нажатии на кнопку "next_day"
+    # if query.data == "next_day":
+    #     context.user_data[user_id]["current_day"] += 1
 
     current_day = context.user_data[user_id].get("current_day", 1)
 
