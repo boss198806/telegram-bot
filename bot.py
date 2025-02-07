@@ -218,14 +218,12 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if current_day < 5:
             user_challenges[user_id]["current_day"] += 1
             new_day = user_challenges[user_id]["current_day"]
+            await send_challenge_task(update.message, user_id)  # Отправляем задание следующего дня
             user_waiting_for_challenge_video[user_id] = new_day
             await update.message.reply_text(
                 f"Отчет за челлендж день {current_day} принят! 🎉\n"
                 f"Ваши баллы: {user_scores[user_id]}.\n"
-                f"Готовы к следующему дню ({new_day})?",
-                reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(f"➡️ День {new_day}", callback_data=f"send_challenge_report_{new_day}")]]
-                ),
+                f"Готовы к следующему дню ({new_day})?"
             )
         else:
             await update.message.reply_text(
@@ -235,7 +233,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     else:
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
-        
 # Челленджи
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -274,6 +271,10 @@ async def handle_send_challenge_report(update: Update, context: ContextTypes.DEF
     # Устанавливаем флаг ожидания видео-отчета для челленджа
     user_waiting_for_challenge_video[user_id] = current_day
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день челленджа.")
+
+    # Устанавливаем флаг ожидания видео-отчета для челленджа
+    user_waiting_for_challenge_video[user_id] = current_day
+    await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день челленджа.")
 # Покупка челленджа
 # Покупка челленджа
 async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -299,11 +300,7 @@ async def handle_next_challenge_day(update: Update, context: ContextTypes.DEFAUL
 async def send_challenge_task(message: Update, user_id: int):
     current_day = user_challenges[user_id]["current_day"]
     exercises = challenge_program.get(current_day, [])
-
-    # Формируем текст с заданием
     caption = f"💪 **Челлендж: День {current_day}** 💪\n\n" + "\n".join(exercises)
-
-    # Отправляем задание пользователю
     await message.reply_text(
         caption,
         parse_mode="Markdown",
