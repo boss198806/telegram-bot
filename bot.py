@@ -200,7 +200,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 f"Поздравляем! Вы завершили бесплатный курс! 🎉\n"
                 f"Ваши баллы: {user_scores[user_id]}.",
-                reply_markup=main_menu()
+                reply_markup=main_menu(),
             )
     elif user_id in user_waiting_for_challenge_video:
         await context.bot.send_message(
@@ -458,7 +458,7 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке фото для 'Как потратить баллы': {e}")
-        await query.message.reply_text("Произошла ошибка при загрузке fotografii. Пожалуйста, попробуйте позже.")
+        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
 
 # Главная функция
 def main():
