@@ -172,9 +172,10 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     if data == "instructor_1":
         context.user_data[user_id]["instructor"] = "evgeniy"
         await query.message.edit_text("Вы выбрали тренера: Евгений Курочкин")
-        await context.bot.send_photo(
+        # Вместо фото отправляем видео, загруженное на GitHub:
+        await context.bot.send_video(
             chat_id=query.message.chat_id,
-            photo="https://github.com/boss198806/telegram-bot/blob/main/Photo.jpg?raw=true",
+            video="https://github.com/boss198806/telegram-bot/raw/refs/heads/main/IMG_1484.MOV",
             caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: Евгений Курочкин",
             reply_markup=main_menu()
         )
@@ -430,9 +431,7 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"Итоговая сумма: {final_price} рублей.\n\n"
         f"Переведите сумму на карту: 89236950304 (Яндекс Банк).\n"
         f"После оплаты отправьте чек для проверки.",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]]
-        ),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]]),
     )
     user_waiting_for_receipt[user_id] = True
 
