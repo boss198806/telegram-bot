@@ -120,7 +120,7 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
             reply_markup=keyboard,
         )
 
-# Функция обработки отправки отчета (handle_send_report)
+# Функция обработки отправки отчета
 async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -181,7 +181,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
 
-# Функция бесплатного курса (обработчик кнопки free_course)
+# Обработчик кнопки "free_course" (бесплатный курс)
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -247,7 +247,7 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Ваша реферальная ссылка:\n{referral_link}\n\nПоделитесь этой ссылкой с друзьями, и когда они начнут пользоваться ботом, вы получите 100 баллов!"
     )
 
-# Функции для челленджей, платного курса, отправки чеков, кабинета, "Обо мне", "Как заработать/потратить баллы" и "Назад"
+# Остальной функционал: челленджи, платный курс, чек, кабинет, "Обо мне", "Как заработать/потратить баллы", "Назад"
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -478,6 +478,7 @@ async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.message.reply_text("Главное меню", reply_markup=main_menu())
 
+# Функция main – регистрирует все обработчики
 def main():
     application = Application.builder().token(TOKEN).build()
 
@@ -486,7 +487,7 @@ def main():
 
     # Обработчики кнопок
     application.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern="^instructor_"))
-    application.add_handler(CallbackQueryHandler(handle_free_course, pattern="^(free_course|next_day)$"))
+    application.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern="^(free_course|next_day)$"))
     application.add_handler(CallbackQueryHandler(handle_gender, pattern="^gender_"))
     application.add_handler(CallbackQueryHandler(handle_program, pattern="^program_"))
     application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)"))
