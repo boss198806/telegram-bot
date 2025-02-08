@@ -61,8 +61,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Обработка кнопки "Меню питания"
 async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.answer()
-    await update.callback_query.message.reply_text("📋 Раздел 'Меню питания' пока в разработке.")
+    query = update.callback_query
+    await query.answer()
+    # Предлагаем пользователю купить меню питания за 300 баллов
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
+        [InlineKeyboardButton("Назад", callback_data="back")]
+    ])
+    await query.message.reply_text("Меню питания доступно для покупки:", reply_markup=keyboard)
+
+# Обработчик покупки меню питания
+async def handle_buy_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    if user_scores.get(user_id, 0) >= 300:
+        user_scores[user_id] -= 300
+        await query.message.reply_text(
+            "Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2",
+            reply_markup=main_menu()
+        )
+    else:
+        await query.message.reply_text("Недостаточно баллов для покупки меню питания!")
 
 # Бесплатный курс
 async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -502,6 +521,7 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="earn_points"))
     application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="spend_points"))
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="nutrition_menu"))
+    application.add_handler(CallbackQueryHandler(handle_buy_nutrition_menu, pattern="buy_nutrition_menu"))
     application.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern="^challenge_next$"))
     application.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
 
