@@ -43,7 +43,7 @@ def main_menu():
         [InlineKeyboardButton("🔗 Реферальная ссылка", callback_data="referral")],
     ])
 
-# Функция для формирования текста кнопки "Отправить отчет" с эмодзи в зависимости от выбора пола и программы
+# Функция для формирования текста кнопки "Отправить отчет" с эмодзи (в зависимости от пола и программы)
 def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     gender = context.user_data[user_id].get("gender", "male")
     program = context.user_data[user_id].get("program", "home")
@@ -53,7 +53,7 @@ def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
 
 # Функция для отправки бесплатного курса (5-дневной тренировки)
 async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-    # Если выбранная комбинация пола и программы НЕ равна Женщина/Дома, выводим сообщение "Пока в разработке"
+    # Бесплатная программа доступна только при выборе: Женщина + программа "Дома"
     if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
         await message.reply_text("Пока в разработке", reply_markup=main_menu())
         return
@@ -430,7 +430,9 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"Итоговая сумма: {final_price} рублей.\n\n"
         f"Переведите сумму на карту: 89236950304 (Яндекс Банк).\n"
         f"После оплаты отправьте чек для проверки.",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]]),
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]]
+        ),
     )
     user_waiting_for_receipt[user_id] = True
 
