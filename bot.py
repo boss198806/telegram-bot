@@ -27,7 +27,7 @@ user_waiting_for_receipt = {}
 user_challenges = {}
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
-# Программа бесплатного курса (без изменений)
+# Программа бесплатного курса
 free_course = {
     1: [
         "1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)",
@@ -63,7 +63,7 @@ free_photos = {
     5: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9651.PNG?raw=true",
 }
 
-# Программа платного курса для Евгения Курочкина (с вашими данными)
+# Программа платного курса для Евгения Курочкина (ваши данные)
 paid_program = {
     1: [
         "Махи назад с утяжелителями 3х25+5 https://t.me/c/2241417709/337/338",
@@ -117,11 +117,11 @@ def main_menu():
 def get_report_button_text(ctx: ContextTypes.DEFAULT_TYPE, uid: int):
     gender = ctx.user_data[uid].get("gender", "male")
     prog = ctx.user_data[uid].get("program", "home")
-    return ("👩" if gender=="female" else "👨") + ("🏠" if prog=="home" else "🏋️") + " Отправить отчет"
+    return ("👩" if gender == "female" else "👨") + ("🏠" if prog == "home" else "🏋️") + " Отправить отчет"
 
 # 1. Бесплатный курс
 async def start_free_course(msg, ctx: ContextTypes.DEFAULT_TYPE, uid: int):
-    if not (ctx.user_data[uid].get("gender")=="female" and ctx.user_data[uid].get("program")=="home"):
+    if not (ctx.user_data[uid].get("gender") == "female" and ctx.user_data[uid].get("program") == "home"):
         return await msg.reply_text("Пока в разработке", reply_markup=main_menu())
     day = ctx.user_data[uid].get("current_day", 1)
     if day > 5:
@@ -180,7 +180,7 @@ async def handle_free_course_callback(update: Update, ctx: ContextTypes.DEFAULT_
 async def handle_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     uid = q.from_user.id
-    ctx.user_data[uid]["gender"] = "male" if q.data=="gender_male" else "female"
+    ctx.user_data[uid]["gender"] = "male" if q.data == "gender_male" else "female"
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
                                   InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]])
     await q.message.reply_text("Выберите программу:", reply_markup=kb)
@@ -188,7 +188,7 @@ async def handle_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def handle_program(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     uid = q.from_user.id
-    ctx.user_data[uid]["program"] = "home" if q.data=="program_home" else "gym"
+    ctx.user_data[uid]["program"] = "home" if q.data == "program_home" else "gym"
     ctx.user_data[uid]["current_day"] = 1
     await start_free_course(q.message, ctx, uid)
 
@@ -253,11 +253,11 @@ async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT_
         )
     else:
         sel = "неизвестный тренер"
-        if data=="instructor_3":
+        if data == "instructor_3":
             sel = "Тренер 3"
-        elif data=="instructor_4":
+        elif data == "instructor_4":
             sel = "Тренер 4"
-        elif data=="instructor_5":
+        elif data == "instructor_5":
             sel = "Тренер 5"
         await q.message.edit_text(f"Вы выбрали тренера: {sel}. Функционал пока не реализован.\nВы будете перенаправлены в главное меню.", reply_markup=main_menu())
 
@@ -296,7 +296,7 @@ async def start_kbju_flow(msg, ctx: ContextTypes.DEFAULT_TYPE, uid: int):
 async def handle_kbju_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     uid = q.from_user.id
-    gender = "male" if q.data=="kbju_gender_male" else "female"
+    gender = "male" if q.data == "kbju_gender_male" else "female"
     ctx.user_data.setdefault("kbju", {})["gender"] = gender
     ctx.user_data["kbju_step"] = "age"
     await q.message.reply_text("Введите ваш возраст (в годах):")
@@ -310,11 +310,11 @@ async def process_kbju_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         val = float(update.message.text)
     except ValueError:
         return await update.message.reply_text("Введите корректное число.")
-    if step=="age":
+    if step == "age":
         ctx.user_data.setdefault("kbju", {})["age"] = val
         ctx.user_data["kbju_step"] = "height"
         await update.message.reply_text("Введите ваш рост (в см):")
-    elif step=="height":
+    elif step == "height":
         ctx.user_data.setdefault("kbju", {})["height"] = val
         ctx.user_data["kbju_step"] = "activity"
         kb = InlineKeyboardMarkup([
@@ -323,7 +323,7 @@ async def process_kbju_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
              InlineKeyboardButton("Высокая", callback_data="kbju_activity_high")]
         ])
         await update.message.reply_text("Выберите уровень активности:", reply_markup=kb)
-    elif step=="weight":
+    elif step == "weight":
         ctx.user_data.setdefault("kbju", {})["weight"] = val
         ctx.user_data["kbju_step"] = "goal"
         kb = InlineKeyboardMarkup([
@@ -356,26 +356,26 @@ async def handle_kbju_goal(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         goal = kbju["goal"]
     except KeyError:
         return await q.message.reply_text("Ошибка: недостаточно данных для расчета.")
-    if gender=="male":
-        bmr = 10*weight + 6.25*height - 5*age + 5
+    if gender == "male":
+        bmr = 10 * weight + 6.25 * height - 5 * age + 5
     else:
-        bmr = 10*weight + 6.25*height - 5*age - 161
-    if act=="low":
+        bmr = 10 * weight + 6.25 * height - 5 * age - 161
+    if act == "low":
         mult = 1.2
-    elif act=="medium":
+    elif act == "medium":
         mult = 1.55
-    elif act=="high":
+    elif act == "high":
         mult = 1.9
     else:
         mult = 1.2
     cal = bmr * mult
-    if goal=="lose":
+    if goal == "lose":
         cal -= 500
-    elif goal=="gain":
+    elif goal == "gain":
         cal += 500
-    prot = (cal*0.3) / 4
-    fat = (cal*0.25) / 9
-    carb = (cal*0.45) / 4
+    prot = (cal * 0.3) / 4
+    fat = (cal * 0.25) / 9
+    carb = (cal * 0.45) / 4
     res = f"Ваш расчет КБЖУ:\nКалорий: {cal:.0f} ккал\nБелков: {prot:.0f} г\nЖиров: {fat:.0f} г\nУглеводов: {carb:.0f} г"
     await q.message.reply_text(res, reply_markup=main_menu())
     ctx.user_data.pop("kbju_step", None)
@@ -417,7 +417,6 @@ async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if day:
         await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
         await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
-        # Начисляем 30 баллов за платный курс
         user_scores[uid] = user_scores.get(uid, 0) + 30
         ctx.user_data[uid]["paid_current_day"] = day + 1
         if day < 5:
@@ -431,7 +430,6 @@ async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Я не жду видео для платного курса.")
 
-# Перенаправление видео: если пользователь в платном курсе – handle_paid_video, иначе обычное handle_video
 async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.message.from_user.id
     if "paid_current_day" in ctx.user_data.get(uid, {}):
@@ -439,7 +437,11 @@ async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     else:
         await handle_video(update, ctx)
 
-# 5. Остальной функционал (без изменений)
+async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# 5. Остальной функционал
 async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -509,7 +511,8 @@ async def send_challenge_task(msg, uid: int):
             "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
     }.get(day, [])
     text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]] if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]]
+                                if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
     await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
 
 async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -528,406 +531,11 @@ async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TY
 async def handle_paid_course(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     uid = q.from_user.id
-    discount = min(user_scores.get(uid, 0)*2, 600)
+    discount = min(user_scores.get(uid, 0) * 2, 600)
     price = 2000 - discount
     await q.message.reply_text(
         f"📚 **Платный курс** 📚\n\nСтоимость курса: 2000 рублей.\nВаша скидка: {discount} рублей.\nИтоговая сумма: {price} рублей.\n\nПереведите сумму на карту: 89236950304 (Яндекс Банк).\nПосле оплаты отправьте чек для проверки.",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data="send_paid_receipt_day_1")]])
-    )
-    user_waiting_for_receipt[uid] = True
-    ctx.user_data.setdefault(uid, {})["paid_course"] = True
-
-# 4. Обработчики платного курса для Евгения Курочкина
-async def start_paid_course(msg, ctx: ContextTypes.DEFAULT_TYPE, uid: int):
-    day = ctx.user_data[uid].get("paid_current_day", 1)
-    if day > 5:
-        return await msg.reply_text("Поздравляем! Вы завершили платный курс! 🎉", reply_markup=main_menu())
-    ex = paid_program.get(day, [])
-    text = f"📚 **Платный курс: День {day}** 📚\n\n" + "\n".join(ex) + "\n\nОтправьте чек (фото) оплаты."
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data=f"send_paid_receipt_day_{day}")]])
-    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
-
-async def handle_send_paid_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    day = int(q.data.split("_")[-1])
-    ctx.user_data.setdefault(uid, {})["waiting_for_paid_receipt"] = True
-    await q.message.reply_text("Пожалуйста, отправьте фото чека об оплате.")
-
-async def handle_paid_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    day = ctx.user_data[uid].get("paid_current_day", 1)
-    if day < 5:
-        ctx.user_data[uid]["paid_current_day"] = day + 1
-        await start_paid_course(q.message, ctx, uid)
-    else:
-        await q.message.reply_text("Поздравляем! Вы завершили платный курс! 🎉", reply_markup=main_menu())
-        ctx.user_data[uid].pop("paid_current_day", None)
-
-# Обработка видео для платного курса – начисление 30 баллов за день
-async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.message.from_user.id
-    uname = update.message.from_user.first_name
-    day = ctx.user_data[uid].get("paid_current_day")
-    if day:
-        await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
-        await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
-        # Начисляем 30 баллов за каждый выполненный день в платном курсе
-        user_scores[uid] = user_scores.get(uid, 0) + 30
-        ctx.user_data[uid]["paid_current_day"] = day + 1
-        if day < 5:
-            await update.message.reply_text(
-                f"Отчет за день {day} принят! 🎉\nВаши баллы: {user_scores[uid]}.\nГотовы к следующему дню ({day+1})?",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"➡️ День {day+1}", callback_data="paid_next_day")]])
-            )
-        else:
-            await update.message.reply_text(f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[uid]}.", reply_markup=main_menu())
-            ctx.user_data[uid].pop("paid_current_day", None)
-    else:
-        await update.message.reply_text("Я не жду видео для платного курса.")
-
-async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.message.from_user.id
-    if "paid_current_day" in ctx.user_data.get(uid, {}):
-        await handle_paid_video(update, ctx)
-    else:
-        await handle_video(update, ctx)
-
-async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.message.reply_text("Главное меню", reply_markup=main_menu())
-
-# 5. Остальной функционал
-async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
-        [InlineKeyboardButton("Назад", callback_data="back")]
-    ])
-    await q.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
-
-async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    if user_scores.get(uid, 0) >= 300:
-        user_scores[uid] -= 300
-        await q.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
-    else:
-        await q.message.reply_text("Недостаточно баллов для покупки меню питания!")
-
-async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    me = await ctx.bot.get_me()
-    link = f"https://t.me/{me.username}?start={uid}"
-    await q.message.reply_text(f"Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов!")
-
-async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    if user_challenges.get(uid):
-        await send_challenge_task(q.message, uid)
-    elif user_scores.get(uid, 0) >= 300:
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge"),
-             InlineKeyboardButton("Назад", callback_data="back")]
-        ])
-        await q.message.reply_text("Доступ к челленджам стоит 300 баллов. Хотите приобрести?", reply_markup=kb)
-    else:
-        await q.message.reply_text(f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(uid, 0)} баллов.\nПродолжайте тренировки!")
-
-async def buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    if user_scores.get(uid, 0) >= 300:
-        user_scores[uid] -= 300
-        user_challenges[uid] = {"current_day": 1}
-        await q.message.reply_text("✅ Доступ к челленджам открыт!")
-        await send_challenge_task(q.message, uid)
-    else:
-        await q.message.reply_text("Недостаточно баллов для покупки доступа!")
-
-async def send_challenge_task(msg, uid: int):
-    day = user_challenges[uid]["current_day"]
-    ex = {
-        1: ["1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
-            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
-            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
-        2: ["1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
-            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
-            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"],
-        3: ["1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
-            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
-        4: ["1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
-            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
-            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
-        5: ["1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
-            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
-            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
-    }.get(day, [])
-    text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]] if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
-    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
-
-async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    if uid not in user_challenges:
-        return await q.answer("Сначала купите челлендж!")
-    day = user_challenges[uid]["current_day"]
-    if day < 5:
-        user_challenges[uid]["current_day"] = day + 1
-        await send_challenge_task(q.message, uid)
-    else:
-        await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
-        del user_challenges[uid]
-
-async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.message.from_user.id
-    uname = update.message.from_user.first_name
-    day = ctx.user_data[uid].get("paid_current_day")
-    if day:
-        await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
-        await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
-        # Начисляем 30 баллов за выполнение дня в платном курсе
-        user_scores[uid] = user_scores.get(uid, 0) + 30
-        ctx.user_data[uid]["paid_current_day"] = day + 1
-        if day < 5:
-            await update.message.reply_text(
-                f"Отчет за день {day} принят! 🎉\nВаши баллы: {user_scores[uid]}.\nГотовы к следующему дню ({day+1})?",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"➡️ День {day+1}", callback_data="paid_next_day")]])
-            )
-        else:
-            await update.message.reply_text(f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[uid]}.", reply_markup=main_menu())
-            ctx.user_data[uid].pop("paid_current_day", None)
-    else:
-        await update.message.reply_text("Я не жду видео для платного курса.")
-
-async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.message.from_user.id
-    if "paid_current_day" in ctx.user_data.get(uid, {}):
-        await handle_paid_video(update, ctx)
-    else:
-        await handle_video(update, ctx)
-
-async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.message.reply_text("Главное меню", reply_markup=main_menu())
-
-# 5. Остальной функционал
-async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
-        [InlineKeyboardButton("Назад", callback_data="back")]
-    ])
-    await q.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
-
-async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    if user_scores.get(uid, 0) >= 300:
-        user_scores[uid] -= 300
-        await q.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
-    else:
-        await q.message.reply_text("Недостаточно баллов для покупки меню питания!")
-
-async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    me = await ctx.bot.get_me()
-    link = f"https://t.me/{me.username}?start={uid}"
-    await q.message.reply_text(f"Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов!")
-
-async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    if user_challenges.get(uid):
-        await send_challenge_task(q.message, uid)
-    elif user_scores.get(uid, 0) >= 300:
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge"),
-             InlineKeyboardButton("Назад", callback_data="back")]
-        ])
-        await q.message.reply_text("Доступ к челленджам стоит 300 баллов. Хотите приобрести?", reply_markup=kb)
-    else:
-        await q.message.reply_text(f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(uid, 0)} баллов.\nПродолжайте тренировки!")
-
-async def buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    if user_scores.get(uid, 0) >= 300:
-        user_scores[uid] -= 300
-        user_challenges[uid] = {"current_day": 1}
-        await q.message.reply_text("✅ Доступ к челленджам открыт!")
-        await send_challenge_task(q.message, uid)
-    else:
-        await q.message.reply_text("Недостаточно баллов для покупки доступа!")
-
-async def send_challenge_task(msg, uid: int):
-    day = user_challenges[uid]["current_day"]
-    ex = {
-        1: ["1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
-            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
-            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
-        2: ["1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
-            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
-            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"],
-        3: ["1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
-            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
-        4: ["1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
-            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
-            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
-        5: ["1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
-            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
-            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
-    }.get(day, [])
-    text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]] if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
-    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
-
-async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    if uid not in user_challenges:
-        return await q.answer("Сначала купите челлендж!")
-    day = user_challenges[uid]["current_day"]
-    if day < 5:
-        user_challenges[uid]["current_day"] = day + 1
-        await send_challenge_task(q.message, uid)
-    else:
-        await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
-        del user_challenges[uid]
-
-async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.message.from_user.id
-    uname = update.message.from_user.first_name
-    day = ctx.user_data[uid].get("paid_current_day")
-    if day:
-        await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
-        await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
-        # Начисляем 30 баллов за каждый выполненный день в платном курсе
-        user_scores[uid] = user_scores.get(uid, 0) + 30
-        ctx.user_data[uid]["paid_current_day"] = day + 1
-        if day < 5:
-            await update.message.reply_text(
-                f"Отчет за день {day} принят! 🎉\nВаши баллы: {user_scores[uid]}.\nГотовы к следующему дню ({day+1})?",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"➡️ День {day+1}", callback_data="paid_next_day")]])
-            )
-        else:
-            await update.message.reply_text(f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[uid]}.", reply_markup=main_menu())
-            ctx.user_data[uid].pop("paid_current_day", None)
-    else:
-        await update.message.reply_text("Я не жду видео для платного курса.")
-
-async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.message.from_user.id
-    if "paid_current_day" in ctx.user_data.get(uid, {}):
-        await handle_paid_video(update, ctx)
-    else:
-        await handle_video(update, ctx)
-
-async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.message.reply_text("Главное меню", reply_markup=main_menu())
-
-# 5. Остальной функционал
-async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
-        [InlineKeyboardButton("Назад", callback_data="back")]
-    ])
-    await q.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
-
-async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    if user_scores.get(uid, 0) >= 300:
-        user_scores[uid] -= 300
-        await q.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
-    else:
-        await q.message.reply_text("Недостаточно баллов для покупки меню питания!")
-
-async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    me = await ctx.bot.get_me()
-    link = f"https://t.me/{me.username}?start={uid}"
-    await q.message.reply_text(f"Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов!")
-
-async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    if user_challenges.get(uid):
-        await send_challenge_task(q.message, uid)
-    elif user_scores.get(uid, 0) >= 300:
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge"),
-             InlineKeyboardButton("Назад", callback_data="back")]
-        ])
-        await q.message.reply_text("Доступ к челленджам стоит 300 баллов. Хотите приобрести?", reply_markup=kb)
-    else:
-        await q.message.reply_text(f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(uid, 0)} баллов.\nПродолжайте тренировки!")
-
-async def buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    if user_scores.get(uid, 0) >= 300:
-        user_scores[uid] -= 300
-        user_challenges[uid] = {"current_day": 1}
-        await q.message.reply_text("✅ Доступ к челленджам открыт!")
-        await send_challenge_task(q.message, uid)
-    else:
-        await q.message.reply_text("Недостаточно баллов для покупки доступа!")
-
-async def send_challenge_task(msg, uid: int):
-    day = user_challenges[uid]["current_day"]
-    ex = {
-        1: ["1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
-            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
-            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
-        2: ["1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
-            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
-            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"],
-        3: ["1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
-            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
-        4: ["1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
-            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
-            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
-        5: ["1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
-            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
-            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
-    }.get(day, [])
-    text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]] if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
-    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
-
-async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    if uid not in user_challenges:
-        return await q.answer("Сначала купите челлендж!")
-    day = user_challenges[uid]["current_day"]
-    if day < 5:
-        user_challenges[uid]["current_day"] = day + 1
-        await send_challenge_task(q.message, uid)
-    else:
-        await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
-        del user_challenges[uid]
-
-async def handle_paid_course(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    uid = q.from_user.id
-    discount = min(user_scores.get(uid, 0)*2, 600)
-    price = 2000 - discount
-    await q.message.reply_text(
-        f"📚 **Платный курс** 📚\n\nСтоимость курса: 2000 рублей.\nВаша скидка: {discount} рублей.\nИтоговая сумма: {price} рублей.\n\nПереведите сумму на карту: 89236950304 (Яндекс Банк).\nПосле оплаты отправьте чек для проверки.",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data="send_paid_receipt_day_1")]])
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data=r"^send_paid_receipt_day_(\d+)$")]])
     )
     user_waiting_for_receipt[uid] = True
     ctx.user_data.setdefault(uid, {})["paid_course"] = True
@@ -940,10 +548,9 @@ async def handle_send_paid_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYP
     ctx.user_data.setdefault(uid, {})["waiting_for_paid_receipt"] = True
     await q.message.reply_text("Пожалуйста, отправьте фото чека об оплате.")
 
-# Обработчик фото (платный курс)
+# Обработка фото для платного курса
 async def handle_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.message.from_user.id
-    # Если ожидается фото чека для платного курса
     if ctx.user_data.get(uid, {}).get("waiting_for_paid_receipt"):
         await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Чек (оплата) от пользователя (ID: {uid}). Подтвердите оплату.")
         photo_id = update.message.photo[-1].file_id
@@ -987,7 +594,7 @@ async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if day:
         await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
         await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
-        user_scores[uid] = user_scores.get(uid, 0) + 30  # Начисляем 30 баллов
+        user_scores[uid] = user_scores.get(uid, 0) + 30
         ctx.user_data[uid]["paid_current_day"] = day + 1
         if day < 5:
             await update.message.reply_text(
@@ -1081,7 +688,8 @@ async def send_challenge_task(msg, uid: int):
             "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
     }.get(day, [])
     text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]] if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]]
+                                if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
     await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
 
 async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1097,6 +705,36 @@ async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TY
         await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
         del user_challenges[uid]
 
+async def handle_paid_course(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    discount = min(user_scores.get(uid, 0) * 2, 600)
+    price = 2000 - discount
+    await q.message.reply_text(
+        f"📚 **Платный курс** 📚\n\nСтоимость курса: 2000 рублей.\nВаша скидка: {discount} рублей.\nИтоговая сумма: {price} рублей.\n\nПереведите сумму на карту: 89236950304 (Яндекс Банк).\nПосле оплаты отправьте чек для проверки.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data=r"^send_paid_receipt_day_(\d+)$")]])
+    )
+    user_waiting_for_receipt[uid] = True
+    ctx.user_data.setdefault(uid, {})["paid_course"] = True
+
+async def handle_send_paid_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    day = int(q.data.split("_")[-1])
+    ctx.user_data.setdefault(uid, {})["waiting_for_paid_receipt"] = True
+    await q.message.reply_text("Пожалуйста, отправьте фото чека об оплате.")
+
+async def handle_paid_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    day = ctx.user_data[uid].get("paid_current_day", 1)
+    if day < 5:
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        await start_paid_course(q.message, ctx, uid)
+    else:
+        await q.message.reply_text("Поздравляем! Вы завершили платный курс! 🎉", reply_markup=main_menu())
+        ctx.user_data[uid].pop("paid_current_day", None)
+
 async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.message.from_user.id
     uname = update.message.from_user.first_name
@@ -1104,7 +742,6 @@ async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if day:
         await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
         await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
-        # Начисляем 30 баллов за выполнение дня в платном курсе
         user_scores[uid] = user_scores.get(uid, 0) + 30
         ctx.user_data[uid]["paid_current_day"] = day + 1
         if day < 5:
@@ -1129,40 +766,1272 @@ async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.message.reply_text("Главное меню", reply_markup=main_menu())
 
+# 5. Остальной функционал
+async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
+        [InlineKeyboardButton("Назад", callback_data="back")]
+    ])
+    await q.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
+
+async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        await q.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки меню питания!")
+
+async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    me = await ctx.bot.get_me()
+    link = f"https://t.me/{me.username}?start={uid}"
+    await q.message.reply_text(f"Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов!")
+
+async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_challenges.get(uid):
+        await send_challenge_task(q.message, uid)
+    elif user_scores.get(uid, 0) >= 300:
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge"),
+             InlineKeyboardButton("Назад", callback_data="back")]
+        ])
+        await q.message.reply_text("Доступ к челленджам стоит 300 баллов. Хотите приобрести?", reply_markup=kb)
+    else:
+        await q.message.reply_text(f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(uid, 0)} баллов.\nПродолжайте тренировки!")
+
+async def buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        user_challenges[uid] = {"current_day": 1}
+        await q.message.reply_text("✅ Доступ к челленджам открыт!")
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки доступа!")
+
+async def send_challenge_task(msg, uid: int):
+    day = user_challenges[uid]["current_day"]
+    ex = {
+        1: ["1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        2: ["1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"],
+        3: ["1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
+        4: ["1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        5: ["1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
+    }.get(day, [])
+    text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]]
+                                if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
+    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+
+async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if uid not in user_challenges:
+        return await q.answer("Сначала купите челлендж!")
+    day = user_challenges[uid]["current_day"]
+    if day < 5:
+        user_challenges[uid]["current_day"] = day + 1
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
+        del user_challenges[uid]
+
+async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    uname = update.message.from_user.first_name
+    day = ctx.user_data[uid].get("paid_current_day")
+    if day:
+        await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
+        await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
+        user_scores[uid] = user_scores.get(uid, 0) + 30
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        if day < 5:
+            await update.message.reply_text(
+                f"Отчет за день {day} принят! 🎉\nВаши баллы: {user_scores[uid]}.\nГотовы к следующему дню ({day+1})?",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"➡️ День {day+1}", callback_data="paid_next_day")]])
+            )
+        else:
+            await update.message.reply_text(f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[uid]}.", reply_markup=main_menu())
+            ctx.user_data[uid].pop("paid_current_day", None)
+    else:
+        await update.message.reply_text("Я не жду видео для платного курса.")
+
+async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    if "paid_current_day" in ctx.user_data.get(uid, {}):
+        await handle_paid_video(update, ctx)
+    else:
+        await handle_video(update, ctx)
+
+async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# 5. Остальной функционал
+async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
+        [InlineKeyboardButton("Назад", callback_data="back")]
+    ])
+    await q.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
+
+async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        await q.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки меню питания!")
+
+async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    me = await ctx.bot.get_me()
+    link = f"https://t.me/{me.username}?start={uid}"
+    await q.message.reply_text(f"Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов!")
+
+async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_challenges.get(uid):
+        await send_challenge_task(q.message, uid)
+    elif user_scores.get(uid, 0) >= 300:
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge"),
+             InlineKeyboardButton("Назад", callback_data="back")]
+        ])
+        await q.message.reply_text("Доступ к челленджам стоит 300 баллов. Хотите приобрести?", reply_markup=kb)
+    else:
+        await q.message.reply_text(f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(uid, 0)} баллов.\nПродолжайте тренировки!")
+
+async def buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        user_challenges[uid] = {"current_day": 1}
+        await q.message.reply_text("✅ Доступ к челленджам открыт!")
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки доступа!")
+
+async def send_challenge_task(msg, uid: int):
+    day = user_challenges[uid]["current_day"]
+    ex = {
+        1: ["1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        2: ["1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"],
+        3: ["1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
+        4: ["1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        5: ["1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
+    }.get(day, [])
+    text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]]
+                                if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
+    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+
+async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if uid not in user_challenges:
+        return await q.answer("Сначала купите челлендж!")
+    day = user_challenges[uid]["current_day"]
+    if day < 5:
+        user_challenges[uid]["current_day"] = day + 1
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
+        del user_challenges[uid]
+
+async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    uname = update.message.from_user.first_name
+    day = ctx.user_data[uid].get("paid_current_day")
+    if day:
+        await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
+        await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
+        user_scores[uid] = user_scores.get(uid, 0) + 30
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        if day < 5:
+            await update.message.reply_text(
+                f"Отчет за день {day} принят! 🎉\nВаши баллы: {user_scores[uid]}.\nГотовы к следующему дню ({day+1})?",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"➡️ День {day+1}", callback_data="paid_next_day")]])
+            )
+        else:
+            await update.message.reply_text(f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[uid]}.", reply_markup=main_menu())
+            ctx.user_data[uid].pop("paid_current_day", None)
+    else:
+        await update.message.reply_text("Я не жду видео для платного курса.")
+
+async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    if "paid_current_day" in ctx.user_data.get(uid, {}):
+        await handle_paid_video(update, ctx)
+    else:
+        await handle_video(update, ctx)
+
+async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# 5. Остальной функционал
+async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
+        [InlineKeyboardButton("Назад", callback_data="back")]
+    ])
+    await q.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
+
+async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        await q.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки меню питания!")
+
+async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    me = await ctx.bot.get_me()
+    link = f"https://t.me/{me.username}?start={uid}"
+    await q.message.reply_text(f"Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов!")
+
+async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_challenges.get(uid):
+        await send_challenge_task(q.message, uid)
+    elif user_scores.get(uid, 0) >= 300:
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge"),
+             InlineKeyboardButton("Назад", callback_data="back")]
+        ])
+        await q.message.reply_text("Доступ к челленджам стоит 300 баллов. Хотите приобрести?", reply_markup=kb)
+    else:
+        await q.message.reply_text(f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(uid, 0)} баллов.\nПродолжайте тренировки!")
+
+async def buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        user_challenges[uid] = {"current_day": 1}
+        await q.message.reply_text("✅ Доступ к челленджам открыт!")
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки доступа!")
+
+async def send_challenge_task(msg, uid: int):
+    day = user_challenges[uid]["current_day"]
+    ex = {
+        1: ["1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        2: ["1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"],
+        3: ["1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
+        4: ["1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        5: ["1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
+    }.get(day, [])
+    text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]]
+                                if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
+    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+
+async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if uid not in user_challenges:
+        return await q.answer("Сначала купите челлендж!")
+    day = user_challenges[uid]["current_day"]
+    if day < 5:
+        user_challenges[uid]["current_day"] = day + 1
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
+        del user_challenges[uid]
+
+async def handle_paid_course(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    discount = min(user_scores.get(uid, 0) * 2, 600)
+    price = 2000 - discount
+    await q.message.reply_text(
+        f"📚 **Платный курс** 📚\n\nСтоимость курса: 2000 рублей.\nВаша скидка: {discount} рублей.\nИтоговая сумма: {price} рублей.\n\nПереведите сумму на карту: 89236950304 (Яндекс Банк).\nПосле оплаты отправьте чек для проверки.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data=r"^send_paid_receipt_day_(\d+)$")]])
+    )
+    user_waiting_for_receipt[uid] = True
+    ctx.user_data.setdefault(uid, {})["paid_course"] = True
+
+async def handle_send_paid_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    day = int(q.data.split("_")[-1])
+    ctx.user_data.setdefault(uid, {})["waiting_for_paid_receipt"] = True
+    await q.message.reply_text("Пожалуйста, отправьте фото чека об оплате.")
+
+async def handle_paid_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    day = ctx.user_data[uid].get("paid_current_day", 1)
+    if day < 5:
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        await start_paid_course(q.message, ctx, uid)
+    else:
+        await q.message.reply_text("Поздравляем! Вы завершили платный курс! 🎉", reply_markup=main_menu())
+        ctx.user_data[uid].pop("paid_current_day", None)
+
+async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    uname = update.message.from_user.first_name
+    day = ctx.user_data[uid].get("paid_current_day")
+    if day:
+        await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
+        await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
+        user_scores[uid] = user_scores.get(uid, 0) + 30
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        if day < 5:
+            await update.message.reply_text(
+                f"Отчет за день {day} принят! 🎉\nВаши баллы: {user_scores[uid]}.\nГотовы к следующему дню ({day+1})?",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"➡️ День {day+1}", callback_data="paid_next_day")]])
+            )
+        else:
+            await update.message.reply_text(f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[uid]}.", reply_markup=main_menu())
+            ctx.user_data[uid].pop("paid_current_day", None)
+    else:
+        await update.message.reply_text("Я не жду видео для платного курса.")
+
+async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    if "paid_current_day" in ctx.user_data.get(uid, {}):
+        await handle_paid_video(update, ctx)
+    else:
+        await handle_video(update, ctx)
+
+async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# 5. Остальной функционал
+async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
+        [InlineKeyboardButton("Назад", callback_data="back")]
+    ])
+    await q.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
+
+async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        await q.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки меню питания!")
+
+async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    me = await ctx.bot.get_me()
+    link = f"https://t.me/{me.username}?start={uid}"
+    await q.message.reply_text(f"Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов!")
+
+async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_challenges.get(uid):
+        await send_challenge_task(q.message, uid)
+    elif user_scores.get(uid, 0) >= 300:
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge"),
+             InlineKeyboardButton("Назад", callback_data="back")]
+        ])
+        await q.message.reply_text("Доступ к челленджам стоит 300 баллов. Хотите приобрести?", reply_markup=kb)
+    else:
+        await q.message.reply_text(f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(uid, 0)} баллов.\nПродолжайте тренировки!")
+
+async def buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        user_challenges[uid] = {"current_day": 1}
+        await q.message.reply_text("✅ Доступ к челленджам открыт!")
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки доступа!")
+
+async def send_challenge_task(msg, uid: int):
+    day = user_challenges[uid]["current_day"]
+    ex = {
+        1: ["1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        2: ["1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"],
+        3: ["1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
+        4: ["1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        5: ["1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
+    }.get(day, [])
+    text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]]
+                                if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
+    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+
+async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if uid not in user_challenges:
+        return await q.answer("Сначала купите челлендж!")
+    day = user_challenges[uid]["current_day"]
+    if day < 5:
+        user_challenges[uid]["current_day"] = day + 1
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
+        del user_challenges[uid]
+
+async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    uname = update.message.from_user.first_name
+    day = ctx.user_data[uid].get("paid_current_day")
+    if day:
+        await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
+        await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
+        user_scores[uid] = user_scores.get(uid, 0) + 30
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        if day < 5:
+            await update.message.reply_text(
+                f"Отчет за день {day} принят! 🎉\nВаши баллы: {user_scores[uid]}.\nГотовы к следующему дню ({day+1})?",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"➡️ День {day+1}", callback_data="paid_next_day")]])
+            )
+        else:
+            await update.message.reply_text(f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[uid]}.", reply_markup=main_menu())
+            ctx.user_data[uid].pop("paid_current_day", None)
+    else:
+        await update.message.reply_text("Я не жду видео для платного курса.")
+
+async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    if "paid_current_day" in ctx.user_data.get(uid, {}):
+        await handle_paid_video(update, ctx)
+    else:
+        await handle_video(update, ctx)
+
+async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# 5. Остальной функционал
+async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
+        [InlineKeyboardButton("Назад", callback_data="back")]
+    ])
+    await q.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
+
+async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        await q.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки меню питания!")
+
+async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    me = await ctx.bot.get_me()
+    link = f"https://t.me/{me.username}?start={uid}"
+    await q.message.reply_text(f"Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов!")
+
+async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_challenges.get(uid):
+        await send_challenge_task(q.message, uid)
+    elif user_scores.get(uid, 0) >= 300:
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge"),
+             InlineKeyboardButton("Назад", callback_data="back")]
+        ])
+        await q.message.reply_text("Доступ к челленджам стоит 300 баллов. Хотите приобрести?", reply_markup=kb)
+    else:
+        await q.message.reply_text(f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(uid, 0)} баллов.\nПродолжайте тренировки!")
+
+async def buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        user_challenges[uid] = {"current_day": 1}
+        await q.message.reply_text("✅ Доступ к челленджам открыт!")
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки доступа!")
+
+async def send_challenge_task(msg, uid: int):
+    day = user_challenges[uid]["current_day"]
+    ex = {
+        1: ["1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        2: ["1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"],
+        3: ["1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
+        4: ["1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        5: ["1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
+    }.get(day, [])
+    text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]]
+                                if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
+    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+
+async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if uid not in user_challenges:
+        return await q.answer("Сначала купите челлендж!")
+    day = user_challenges[uid]["current_day"]
+    if day < 5:
+        user_challenges[uid]["current_day"] = day + 1
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
+        del user_challenges[uid]
+
+async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    uname = update.message.from_user.first_name
+    day = ctx.user_data[uid].get("paid_current_day")
+    if day:
+        await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
+        await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
+        user_scores[uid] = user_scores.get(uid, 0) + 30
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        if day < 5:
+            await update.message.reply_text(
+                f"Отчет за день {day} принят! 🎉\nВаши баллы: {user_scores[uid]}.\nГотовы к следующему дню ({day+1})?",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"➡️ День {day+1}", callback_data="paid_next_day")]])
+            )
+        else:
+            await update.message.reply_text(f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[uid]}.", reply_markup=main_menu())
+            ctx.user_data[uid].pop("paid_current_day", None)
+    else:
+        await update.message.reply_text("Я не жду видео для платного курса.")
+
+async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    if "paid_current_day" in ctx.user_data.get(uid, {}):
+        await handle_paid_video(update, ctx)
+    else:
+        await handle_video(update, ctx)
+
+async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# 5. Остальной функционал
+async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
+        [InlineKeyboardButton("Назад", callback_data="back")]
+    ])
+    await q.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
+
+async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        await q.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки меню питания!")
+
+async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    me = await ctx.bot.get_me()
+    link = f"https://t.me/{me.username}?start={uid}"
+    await q.message.reply_text(f"Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов!")
+
+async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_challenges.get(uid):
+        await send_challenge_task(q.message, uid)
+    elif user_scores.get(uid, 0) >= 300:
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge"),
+             InlineKeyboardButton("Назад", callback_data="back")]
+        ])
+        await q.message.reply_text("Доступ к челленджам стоит 300 баллов. Хотите приобрести?", reply_markup=kb)
+    else:
+        await q.message.reply_text(f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(uid, 0)} баллов.\nПродолжайте тренировки!")
+
+async def buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        user_challenges[uid] = {"current_day": 1}
+        await q.message.reply_text("✅ Доступ к челленджам открыт!")
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки доступа!")
+
+async def send_challenge_task(msg, uid: int):
+    day = user_challenges[uid]["current_day"]
+    ex = {
+        1: ["1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        2: ["1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"],
+        3: ["1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
+        4: ["1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        5: ["1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
+    }.get(day, [])
+    text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]]
+                                if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
+    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+
+async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if uid not in user_challenges:
+        return await q.answer("Сначала купите челлендж!")
+    day = user_challenges[uid]["current_day"]
+    if day < 5:
+        user_challenges[uid]["current_day"] = day + 1
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
+        del user_challenges[uid]
+
+async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    uname = update.message.from_user.first_name
+    day = ctx.user_data[uid].get("paid_current_day")
+    if day:
+        await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
+        await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
+        user_scores[uid] = user_scores.get(uid, 0) + 30
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        if day < 5:
+            await update.message.reply_text(
+                f"Отчет за день {day} принят! 🎉\nВаши баллы: {user_scores[uid]}.\nГотовы к следующему дню ({day+1})?",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"➡️ День {day+1}", callback_data="paid_next_day")]])
+            )
+        else:
+            await update.message.reply_text(f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[uid]}.", reply_markup=main_menu())
+            ctx.user_data[uid].pop("paid_current_day", None)
+    else:
+        await update.message.reply_text("Я не жду видео для платного курса.")
+
+async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    if "paid_current_day" in ctx.user_data.get(uid, {}):
+        await handle_paid_video(update, ctx)
+    else:
+        await handle_video(update, ctx)
+
+async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# 5. Остальной функционал
+async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
+        [InlineKeyboardButton("Назад", callback_data="back")]
+    ])
+    await q.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
+
+async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        await q.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки меню питания!")
+
+async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    me = await ctx.bot.get_me()
+    link = f"https://t.me/{me.username}?start={uid}"
+    await q.message.reply_text(f"Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов!")
+
+async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_challenges.get(uid):
+        await send_challenge_task(q.message, uid)
+    elif user_scores.get(uid, 0) >= 300:
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge"),
+             InlineKeyboardButton("Назад", callback_data="back")]
+        ])
+        await q.message.reply_text("Доступ к челленджам стоит 300 баллов. Хотите приобрести?", reply_markup=kb)
+    else:
+        await q.message.reply_text(f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(uid, 0)} баллов.\nПродолжайте тренировки!")
+
+async def buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        user_challenges[uid] = {"current_day": 1}
+        await q.message.reply_text("✅ Доступ к челленджам открыт!")
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки доступа!")
+
+async def send_challenge_task(msg, uid: int):
+    day = user_challenges[uid]["current_day"]
+    ex = {
+        1: ["1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        2: ["1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"],
+        3: ["1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
+        4: ["1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        5: ["1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
+    }.get(day, [])
+    text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]]
+                                if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
+    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+
+async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if uid not in user_challenges:
+        return await q.answer("Сначала купите челлендж!")
+    day = user_challenges[uid]["current_day"]
+    if day < 5:
+        user_challenges[uid]["current_day"] = day + 1
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
+        del user_challenges[uid]
+
+async def handle_paid_course(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    discount = min(user_scores.get(uid, 0) * 2, 600)
+    price = 2000 - discount
+    await q.message.reply_text(
+        f"📚 **Платный курс** 📚\n\nСтоимость курса: 2000 рублей.\nВаша скидка: {discount} рублей.\nИтоговая сумма: {price} рублей.\n\nПереведите сумму на карту: 89236950304 (Яндекс Банк).\nПосле оплаты отправьте чек для проверки.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data=r"^send_paid_receipt_day_(\d+)$")]])
+    )
+    user_waiting_for_receipt[uid] = True
+    ctx.user_data.setdefault(uid, {})["paid_course"] = True
+
+async def handle_send_paid_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    day = int(q.data.split("_")[-1])
+    ctx.user_data.setdefault(uid, {})["waiting_for_paid_receipt"] = True
+    await q.message.reply_text("Пожалуйста, отправьте фото чека об оплате.")
+
+async def handle_paid_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    day = ctx.user_data[uid].get("paid_current_day", 1)
+    if day < 5:
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        await start_paid_course(q.message, ctx, uid)
+    else:
+        await q.message.reply_text("Поздравляем! Вы завершили платный курс! 🎉", reply_markup=main_menu())
+        ctx.user_data[uid].pop("paid_current_day", None)
+
+async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    uname = update.message.from_user.first_name
+    day = ctx.user_data[uid].get("paid_current_day")
+    if day:
+        await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
+        await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
+        user_scores[uid] = user_scores.get(uid, 0) + 30
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        if day < 5:
+            await update.message.reply_text(
+                f"Отчет за день {day} принят! 🎉\nВаши баллы: {user_scores[uid]}.\nГотовы к следующему дню ({day+1})?",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"➡️ День {day+1}", callback_data="paid_next_day")]])
+            )
+        else:
+            await update.message.reply_text(f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[uid]}.", reply_markup=main_menu())
+            ctx.user_data[uid].pop("paid_current_day", None)
+    else:
+        await update.message.reply_text("Я не жду видео для платного курса.")
+
+async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    if "paid_current_day" in ctx.user_data.get(uid, {}):
+        await handle_paid_video(update, ctx)
+    else:
+        await handle_video(update, ctx)
+
+async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# 5. Остальной функционал
+async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
+        [InlineKeyboardButton("Назад", callback_data="back")]
+    ])
+    await q.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
+
+async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        await q.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки меню питания!")
+
+async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    me = await ctx.bot.get_me()
+    link = f"https://t.me/{me.username}?start={uid}"
+    await q.message.reply_text(f"Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов!")
+
+async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_challenges.get(uid):
+        await send_challenge_task(q.message, uid)
+    elif user_scores.get(uid, 0) >= 300:
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge"),
+             InlineKeyboardButton("Назад", callback_data="back")]
+        ])
+        await q.message.reply_text("Доступ к челленджам стоит 300 баллов. Хотите приобрести?", reply_markup=kb)
+    else:
+        await q.message.reply_text(f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(uid, 0)} баллов.\nПродолжайте тренировки!")
+
+async def buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        user_challenges[uid] = {"current_day": 1}
+        await q.message.reply_text("✅ Доступ к челленджам открыт!")
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки доступа!")
+
+async def send_challenge_task(msg, uid: int):
+    day = user_challenges[uid]["current_day"]
+    ex = {
+        1: ["1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        2: ["1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"],
+        3: ["1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
+        4: ["1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        5: ["1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
+    }.get(day, [])
+    text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]]
+                                if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
+    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+
+async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if uid not in user_challenges:
+        return await q.answer("Сначала купите челлендж!")
+    day = user_challenges[uid]["current_day"]
+    if day < 5:
+        user_challenges[uid]["current_day"] = day + 1
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
+        del user_challenges[uid]
+
+async def handle_paid_course(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    discount = min(user_scores.get(uid, 0) * 2, 600)
+    price = 2000 - discount
+    await q.message.reply_text(
+        f"📚 **Платный курс** 📚\n\nСтоимость курса: 2000 рублей.\nВаша скидка: {discount} рублей.\nИтоговая сумма: {price} рублей.\n\nПереведите сумму на карту: 89236950304 (Яндекс Банк).\nПосле оплаты отправьте чек для проверки.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data=r"^send_paid_receipt_day_(\d+)$")]])
+    )
+    user_waiting_for_receipt[uid] = True
+    ctx.user_data.setdefault(uid, {})["paid_course"] = True
+
+async def handle_send_paid_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    day = int(q.data.split("_")[-1])
+    ctx.user_data.setdefault(uid, {})["waiting_for_paid_receipt"] = True
+    await q.message.reply_text("Пожалуйста, отправьте фото чека об оплате.")
+
+async def handle_paid_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    day = ctx.user_data[uid].get("paid_current_day", 1)
+    if day < 5:
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        await start_paid_course(q.message, ctx, uid)
+    else:
+        await q.message.reply_text("Поздравляем! Вы завершили платный курс! 🎉", reply_markup=main_menu())
+        ctx.user_data[uid].pop("paid_current_day", None)
+
+async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    uname = update.message.from_user.first_name
+    day = ctx.user_data[uid].get("paid_current_day")
+    if day:
+        await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
+        await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
+        user_scores[uid] = user_scores.get(uid, 0) + 30
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        if day < 5:
+            await update.message.reply_text(
+                f"Отчет за день {day} принят! 🎉\nВаши баллы: {user_scores[uid]}.\nГотовы к следующему дню ({day+1})?",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"➡️ День {day+1}", callback_data="paid_next_day")]])
+            )
+        else:
+            await update.message.reply_text(f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[uid]}.", reply_markup=main_menu())
+            ctx.user_data[uid].pop("paid_current_day", None)
+    else:
+        await update.message.reply_text("Я не жду видео для платного курса.")
+
+async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    if "paid_current_day" in ctx.user_data.get(uid, {}):
+        await handle_paid_video(update, ctx)
+    else:
+        await handle_video(update, ctx)
+
+async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# 5. Остальной функционал
+async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
+        [InlineKeyboardButton("Назад", callback_data="back")]
+    ])
+    await q.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
+
+async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        await q.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки меню питания!")
+
+async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    me = await ctx.bot.get_me()
+    link = f"https://t.me/{me.username}?start={uid}"
+    await q.message.reply_text(f"Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов!")
+
+async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_challenges.get(uid):
+        await send_challenge_task(q.message, uid)
+    elif user_scores.get(uid, 0) >= 300:
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge"),
+             InlineKeyboardButton("Назад", callback_data="back")]
+        ])
+        await q.message.reply_text("Доступ к челленджам стоит 300 баллов. Хотите приобрести?", reply_markup=kb)
+    else:
+        await q.message.reply_text(f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(uid, 0)} баллов.\nПродолжайте тренировки!")
+
+async def buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if user_scores.get(uid, 0) >= 300:
+        user_scores[uid] -= 300
+        user_challenges[uid] = {"current_day": 1}
+        await q.message.reply_text("✅ Доступ к челленджам открыт!")
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Недостаточно баллов для покупки доступа!")
+
+async def send_challenge_task(msg, uid: int):
+    day = user_challenges[uid]["current_day"]
+    ex = {
+        1: ["1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        2: ["1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)"],
+        3: ["1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
+        4: ["1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)"],
+        5: ["1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)"]
+    }.get(day, [])
+    text = f"💪 **Челлендж: День {day}** 💪\n\n" + "\n".join(ex)
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]]
+                                if day < 5 else [[InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]])
+    await msg.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+
+async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    if uid not in user_challenges:
+        return await q.answer("Сначала купите челлендж!")
+    day = user_challenges[uid]["current_day"]
+    if day < 5:
+        user_challenges[uid]["current_day"] = day + 1
+        await send_challenge_task(q.message, uid)
+    else:
+        await q.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
+        del user_challenges[uid]
+
+async def handle_paid_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    uname = update.message.from_user.first_name
+    day = ctx.user_data[uid].get("paid_current_day")
+    if day:
+        await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {uname} (ID: {uid}) за день {day}.")
+        await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
+        user_scores[uid] = user_scores.get(uid, 0) + 30
+        ctx.user_data[uid]["paid_current_day"] = day + 1
+        if day < 5:
+            await update.message.reply_text(
+                f"Отчет за день {day} принят! 🎉\nВаши баллы: {user_scores[uid]}.\nГотовы к следующему дню ({day+1})?",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"➡️ День {day+1}", callback_data="paid_next_day")]])
+            )
+        else:
+            await update.message.reply_text(f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[uid]}.", reply_markup=main_menu())
+            ctx.user_data[uid].pop("paid_current_day", None)
+    else:
+        await update.message.reply_text("Я не жду видео для платного курса.")
+
+async def handle_video_dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    if "paid_current_day" in ctx.user_data.get(uid, {}):
+        await handle_paid_video(update, ctx)
+    else:
+        await handle_video(update, ctx)
+
+async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# 5. Остальной функционал (КБЖУ, Мой кабинет, Обо мне, как заработать/потратить баллы)
+async def handle_earn_points(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    text = ("💡 Как заработать баллы:\n\n1. Проходите бесплатный курс и отправляйте видео-отчеты.\n2. Участвуйте в челленджах и отправляйте видео-отчеты.\n"
+            "3. Приглашайте друзей и получайте баллы за их активность.\n4. Покупайте платный курс и получаете дополнительные баллы.")
+    try:
+        await ctx.bot.send_photo(chat_id=update.effective_chat.id, photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true", caption=text, parse_mode="Markdown")
+    except Exception as e:
+        logger.error(f"Ошибка для 'Как заработать баллы': {e}")
+        await q.message.reply_text("Ошибка при загрузке фото. Попробуйте позже.")
+
+async def handle_spend_points(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    score = user_scores.get(uid, 0)
+    text = (f"💰 Как потратить баллы:\n\nУ вас есть {score} баллов.\nВы можете потратить баллы на:\n"
+            "- Скидку при покупке платного курса (1 балл = 2 рубля).\n- Максимальная скидка - 600 рублей.\n- Другие привилегии!")
+    try:
+        await ctx.bot.send_photo(chat_id=update.effective_chat.id, photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true", caption=text, parse_mode="Markdown")
+    except Exception as e:
+        logger.error(f"Ошибка для 'Как потратить баллы': {e}")
+        await q.message.reply_text("Ошибка при загрузке фото. Попробуйте позже.")
+
+async def handle_my_cabinet(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    uid = q.from_user.id
+    score = user_scores.get(uid, 0)
+    stat = user_status.get(uid, statuses[0])
+    text = f"👤 Ваш кабинет:\n\nСтатус: {stat}\nБаллы: {score}\nПродолжайте тренироваться, чтобы улучшить статус и заработать больше баллов!"
+    try:
+        await ctx.bot.send_photo(chat_id=update.effective_chat.id, photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true", caption=text, parse_mode="Markdown")
+    except Exception as e:
+        logger.error(f"Ошибка для 'Мой кабинет': {e}")
+        await q.message.reply_text("Ошибка при загрузке фото. Попробуйте позже.")
+
+async def handle_about_me(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    text = ("👤 О тренере:\n\nКурочкин Евгений Витальевич\nОбщий тренировочный стаж - 20 лет\nСтаж работы - 15 лет\n"
+            "МС - по становой тяге\nМС - по жиму штанги лежа\nСудья - федеральной категории\nОрганизатор соревнований\n"
+            "КМС - по бодибилдингу\n\n20 лет в фитнесе!")
+    try:
+        await ctx.bot.send_photo(chat_id=update.effective_chat.id, photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true", caption=text, parse_mode="Markdown")
+    except Exception as e:
+        logger.error(f"Ошибка для 'Обо мне': {e}")
+        await q.message.reply_text("Ошибка при загрузке фото. Попробуйте позже.")
+
+# Функция для обработки текстовых сообщений для КБЖУ
+async def process_kbju_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    if "kbju_step" not in ctx.user_data:
+        return
+    step = ctx.user_data["kbju_step"]
+    try:
+        val = float(update.message.text)
+    except ValueError:
+        return await update.message.reply_text("Введите корректное число.")
+    if step == "age":
+        ctx.user_data.setdefault("kbju", {})["age"] = val
+        ctx.user_data["kbju_step"] = "height"
+        await update.message.reply_text("Введите ваш рост (в см):")
+    elif step == "height":
+        ctx.user_data.setdefault("kbju", {})["height"] = val
+        ctx.user_data["kbju_step"] = "activity"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Малая", callback_data="kbju_activity_low"),
+             InlineKeyboardButton("Средняя", callback_data="kbju_activity_medium"),
+             InlineKeyboardButton("Высокая", callback_data="kbju_activity_high")]
+        ])
+        await update.message.reply_text("Выберите уровень активности:", reply_markup=kb)
+    elif step == "weight":
+        ctx.user_data.setdefault("kbju", {})["weight"] = val
+        ctx.user_data["kbju_step"] = "goal"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Поддерживать", callback_data="kbju_goal_maintain"),
+             InlineKeyboardButton("Похудеть", callback_data="kbju_goal_lose"),
+             InlineKeyboardButton("Набрать", callback_data="kbju_goal_gain")]
+        ])
+        await update.message.reply_text("Выберите вашу цель:", reply_markup=kb)
+
+# --------------- Main ---------------
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern="^instructor_"))
-    app.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern="^(free_course|next_day)$"))
-    app.add_handler(CallbackQueryHandler(handle_gender, pattern="^gender_"))
-    app.add_handler(CallbackQueryHandler(handle_program, pattern="^program_"))
-    app.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)"))
-    app.add_handler(CallbackQueryHandler(handle_challenges, pattern="^challenge_menu$"))
-    app.add_handler(CallbackQueryHandler(buy_challenge, pattern="^buy_challenge$"))
-    app.add_handler(CallbackQueryHandler(handle_paid_course, pattern="^paid_course$"))
-    app.add_handler(CallbackQueryHandler(confirm_payment, pattern="^confirm_payment_"))
-    app.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="^my_cabinet$"))
-    app.add_handler(CallbackQueryHandler(handle_about_me, pattern="^about_me$"))
-    app.add_handler(CallbackQueryHandler(handle_earn_points, pattern="^earn_points$"))
-    app.add_handler(CallbackQueryHandler(handle_spend_points, pattern="^spend_points$"))
-    app.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="^nutrition_menu$"))
-    app.add_handler(CallbackQueryHandler(handle_buy_nutrition_menu, pattern="^buy_nutrition_menu$"))
-    app.add_handler(CallbackQueryHandler(handle_referral, pattern="^referral$"))
-    app.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern="^challenge_next$"))
-    app.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
+    app.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern=r"^instructor_"))
+    app.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern=r"^(free_course|next_day)$"))
+    app.add_handler(CallbackQueryHandler(handle_gender, pattern=r"^gender_"))
+    app.add_handler(CallbackQueryHandler(handle_program, pattern=r"^program_"))
+    app.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"^send_report_day_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(handle_challenges, pattern=r"^challenge_menu$"))
+    app.add_handler(CallbackQueryHandler(buy_challenge, pattern=r"^buy_challenge$"))
+    app.add_handler(CallbackQueryHandler(handle_paid_course, pattern=r"^paid_course$"))
+    app.add_handler(CallbackQueryHandler(confirm_payment, pattern=r"^confirm_payment_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern=r"^my_cabinet$"))
+    app.add_handler(CallbackQueryHandler(handle_about_me, pattern=r"^about_me$"))
+    app.add_handler(CallbackQueryHandler(handle_earn_points, pattern=r"^earn_points$"))
+    app.add_handler(CallbackQueryHandler(handle_spend_points, pattern=r"^spend_points$"))
+    app.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern=r"^nutrition_menu$"))
+    app.add_handler(CallbackQueryHandler(handle_buy_nutrition_menu, pattern=r"^buy_nutrition_menu$"))
+    app.add_handler(CallbackQueryHandler(handle_referral, pattern=r"^referral$"))
+    app.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern=r"^challenge_next$"))
+    app.add_handler(CallbackQueryHandler(handle_back, pattern=r"^back$"))
     # Обработчики КБЖУ
-    app.add_handler(CallbackQueryHandler(handle_kbju_calc, pattern="^kbju_calc$"))
-    app.add_handler(CallbackQueryHandler(handle_buy_kbju, pattern="^buy_kbju$"))
-    app.add_handler(CallbackQueryHandler(handle_kbju_gender, pattern="^kbju_gender_"))
-    app.add_handler(CallbackQueryHandler(handle_kbju_activity, pattern="^kbju_activity_"))
-    app.add_handler(CallbackQueryHandler(handle_kbju_goal, pattern="^kbju_goal_"))
+    app.add_handler(CallbackQueryHandler(handle_kbju_calc, pattern=r"^kbju_calc$"))
+    app.add_handler(CallbackQueryHandler(handle_buy_kbju, pattern=r"^buy_kbju$"))
+    app.add_handler(CallbackQueryHandler(handle_kbju_gender, pattern=r"^kbju_gender_"))
+    app.add_handler(CallbackQueryHandler(handle_kbju_activity, pattern=r"^kbju_activity_"))
+    app.add_handler(CallbackQueryHandler(handle_kbju_goal, pattern=r"^kbju_goal_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_kbju_text))
-    # Для видео: если в платном курсе – handle_paid_video, иначе обычное handle_video
+    # Видеообработчики
     app.add_handler(MessageHandler(filters.VIDEO, handle_video_dispatch))
     app.add_handler(MessageHandler(filters.PHOTO, handle_receipt))
     # Обработчики для платного чека
-    app.add_handler(CallbackQueryHandler(handle_send_paid_receipt, pattern="^send_paid_receipt_day_(\d+)"))
-    app.add_handler(CallbackQueryHandler(handle_paid_next_day, pattern="^paid_next_day$"))
+    app.add_handler(CallbackQueryHandler(handle_send_paid_receipt, pattern=r"^send_paid_receipt_day_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(handle_paid_next_day, pattern=r"^paid_next_day$"))
     print("Бот запущен и готов к работе.")
     app.run_polling()
 
