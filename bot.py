@@ -43,7 +43,7 @@ def main_menu():
         [InlineKeyboardButton("🔗 Реферальная ссылка", callback_data="referral")],
     ])
 
-# Функция старта – теперь сначала запрашивает выбор инструктора
+# Функция старта – сначала запрашиваем выбор инструктора
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id
@@ -73,7 +73,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Формируем клавиатуру для выбора инструктора (5 кнопок)
         instructor_keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_1")],
-            [InlineKeyboardButton("Тренер 2", callback_data="instructor_2")],
+            [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_2")],
             [InlineKeyboardButton("Тренер 3", callback_data="instructor_3")],
             [InlineKeyboardButton("Тренер 4", callback_data="instructor_4")],
             [InlineKeyboardButton("Тренер 5", callback_data="instructor_5")],
@@ -93,7 +93,7 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     data = query.data
     await query.answer()
     if data == "instructor_1":
-        # Для Евгения Курочкина – показываем основной функционал
+        # Для Евгения Курочкина – выводим основной функционал (старое изображение)
         await query.message.edit_text("Вы выбрали тренера: Евгений Курочкин")
         await context.bot.send_photo(
             chat_id=query.message.chat_id,
@@ -101,11 +101,18 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
             caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: Евгений Курочкин",
             reply_markup=main_menu()
         )
+    elif data == "instructor_2":
+        # Для АНАСТАСИИ – дублируем весь функционал, как у Евгения Курочкина, но меняем изображение
+        await query.message.edit_text("Вы выбрали тренера: АНАСТАСИЯ")
+        await context.bot.send_photo(
+            chat_id=query.message.chat_id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025-02-08_22-08-36.jpg?raw=true",
+            caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: АНАСТАСИЯ",
+            reply_markup=main_menu()
+        )
     else:
-        # Для остальных тренеров – выводим сообщение и переходим в главное меню
-        if data == "instructor_2":
-            selected_name = "Тренер 2"
-        elif data == "instructor_3":
+        # Для остальных тренеров – пока выводим сообщение о том, что функционал не реализован
+        if data == "instructor_3":
             selected_name = "Тренер 3"
         elif data == "instructor_4":
             selected_name = "Тренер 4"
@@ -240,7 +247,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.message.from_user.first_name
     if user_id in user_waiting_for_video:
         current_day = user_waiting_for_video[user_id]
-        # Отправляем видео в группу
         await context.bot.send_message(
             chat_id=GROUP_ID,
             text=f"Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
@@ -249,7 +255,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=GROUP_ID,
             video=update.message.video.file_id
         )
-        # Обновляем статистику
         user_reports_sent.setdefault(user_id, {})[current_day] = True
         user_scores[user_id] += 60
         del user_waiting_for_video[user_id]
