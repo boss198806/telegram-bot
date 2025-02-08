@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"
 GROUP_ID = "-1002451371911"
 
-# Словари для хранения данных
+# Глобальные словари
 user_scores = {}
 user_status = {}
 user_reports_sent = {}
@@ -29,7 +29,8 @@ user_waiting_for_receipt = {}
 user_challenges = {}
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
-# Главное меню
+# 1. Вспомогательные функции
+
 def main_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔥 Пройти бесплатный курс", callback_data="free_course")],
@@ -43,7 +44,6 @@ def main_menu():
         [InlineKeyboardButton("🔗 Реферальная ссылка", callback_data="referral")],
     ])
 
-# Функция для формирования текста кнопки "Отправить отчет" с эмодзи (в зависимости от пола и программы)
 def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     gender = context.user_data[user_id].get("gender", "male")
     program = context.user_data[user_id].get("program", "home")
@@ -51,9 +51,10 @@ def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     suffix = "🏠" if program == "home" else "🏋️"
     return f"{prefix}{suffix} Отправить отчет"
 
-# Функция для отправки бесплатного курса (5-дневной тренировки)
+# 2. Функции для бесплатного курса
+
 async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-    # Бесплатная программа доступна только при выборе: Женщина + программа "Дома"
+    # Бесплатная программа доступна только для женщин, занимающихся дома
     if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
         await message.reply_text("Пока в разработке", reply_markup=main_menu())
         return
@@ -120,69 +121,8 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
             reply_markup=keyboard,
         )
 
-# Функция обработки отправки отчета
-async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    current_day = int(query.data.split("_")[-1])
-    if user_reports_sent.get(user_id, {}).get(current_day):
-        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day}.")
-        return
-    user_waiting_for_video[user_id] = current_day
-    await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день.")
-
-# Функция отправки видео-отчета
-async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    user_name = update.message.from_user.first_name
-    if user_id in user_waiting_for_video:
-        current_day = user_waiting_for_video[user_id]
-        await context.bot.send_message(
-            chat_id=GROUP_ID,
-            text=f"Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
-        )
-        await context.bot.send_video(
-            chat_id=GROUP_ID,
-            video=update.message.video.file_id
-        )
-        user_reports_sent.setdefault(user_id, {})[current_day] = True
-        user_scores[user_id] += 60
-        del user_waiting_for_video[user_id]
-        if current_day < 5:
-            context.user_data[user_id]["current_day"] += 1
-            new_day = context.user_data[user_id]["current_day"]
-            user_waiting_for_video[user_id] = new_day
-            await update.message.reply_text(
-                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.\nГотовы к следующему дню ({new_day})?",
-                reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(f"➡️ День {new_day}", callback_data="next_day")]]
-                ),
-            )
-        else:
-            user_status[user_id] = statuses[1]
-            await update.message.reply_text(
-                f"Поздравляем! Вы завершили бесплатный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
-                reply_markup=main_menu(),
-            )
-    elif user_id in user_waiting_for_challenge_video:
-        await context.bot.send_message(
-            chat_id=GROUP_ID,
-            text=f"Видео-отчет от {user_name} (ID: {user_id}) за челлендж."
-        )
-        await context.bot.send_video(
-            chat_id=GROUP_ID,
-            video=update.message.video.file_id
-        )
-        user_scores[user_id] += 60
-        del user_waiting_for_challenge_video[user_id]
-        await update.message.reply_text(
-            f"Отчет за челлендж принят! 🎉\nВаши баллы: {user_scores[user_id]}."
-        )
-    else:
-        await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
-
-# Обработчик кнопки "free_course" (бесплатный курс)
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Если пользователь нажал "free_course", сначала запросим выбор пола, если его нет
     query = update.callback_query
     user_id = query.from_user.id
     if query.data == "free_course":
@@ -195,7 +135,6 @@ async def handle_free_course_callback(update: Update, context: ContextTypes.DEFA
             return
     await start_free_course(query.message, context, user_id)
 
-# Обработчик выбора пола
 async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -206,7 +145,6 @@ async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
     await query.message.reply_text("Выберите программу:", reply_markup=program_keyboard)
 
-# Обработчик выбора программы
 async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -214,7 +152,91 @@ async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data[user_id]["current_day"] = 1
     await start_free_course(query.message, context, user_id)
 
-# Обработчик кнопки "Меню питания"
+# 3. Функция старта (CommandHandler "start") и выбор инструктора
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        user_id = update.effective_user.id
+
+        # Обработка реферального параметра
+        if context.args:
+            referrer_id_str = context.args[0]
+            try:
+                referrer_id = int(referrer_id_str)
+                if referrer_id != user_id:
+                    user_scores[referrer_id] = user_scores.get(referrer_id, 0) + 100
+                    try:
+                        await context.bot.send_message(
+                            chat_id=referrer_id,
+                            text="Поздравляем! Новый пользователь воспользовался вашей реферальной ссылкой. Вы получили 100 баллов!"
+                        )
+                    except Exception as e:
+                        logger.error(f"Не удалось отправить сообщение о реферальном бонусе пользователю {referrer_id}: {e}")
+            except ValueError:
+                pass
+
+        context.user_data.setdefault(user_id, {"current_day": 1})
+        user_scores[user_id] = user_scores.get(user_id, 0)
+        user_status[user_id] = user_status.get(user_id, statuses[0])
+        
+        # Выбор инструктора (5 кнопок)
+        instructor_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_1")],
+            [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_2")],
+            [InlineKeyboardButton("Тренер 3", callback_data="instructor_3")],
+            [InlineKeyboardButton("Тренер 4", callback_data="instructor_4")],
+            [InlineKeyboardButton("Тренер 5", callback_data="instructor_5")],
+        ])
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Выбери для себя фитнес инструктора:",
+            reply_markup=instructor_keyboard,
+        )
+    except Exception as e:
+        logger.error(f"Ошибка в /start: {e}")
+        await update.message.reply_text("Произошла ошибка. Пожалуйста, попробуйте позже.")
+
+async def handle_instructor_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    data = query.data
+    user_id = query.from_user.id
+    await query.answer()
+    if data == "instructor_1":
+        context.user_data[user_id]["instructor"] = "evgeniy"
+        await query.message.edit_text("Вы выбрали тренера: Евгений Курочкин")
+        # Отправляем видео с поддержкой потокового воспроизведения
+        await context.bot.send_video(
+            chat_id=query.message.chat_id,
+            video="https://github.com/boss198806/telegram-bot/raw/refs/heads/main/IMG_1484.MOV",
+            supports_streaming=True,
+            caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: Евгений Курочкин",
+            reply_markup=main_menu()
+        )
+    elif data == "instructor_2":
+        context.user_data[user_id]["instructor"] = "anastasiya"
+        await query.message.edit_text("Вы выбрали тренера: АНАСТАСИЯ")
+        await context.bot.send_photo(
+            chat_id=query.message.chat_id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025-02-08_22-08-36.jpg?raw=true",
+            caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: АНАСТАСИЯ",
+            reply_markup=main_menu()
+        )
+    else:
+        if data == "instructor_3":
+            selected_name = "Тренер 3"
+        elif data == "instructor_4":
+            selected_name = "Тренер 4"
+        elif data == "instructor_5":
+            selected_name = "Тренер 5"
+        else:
+            selected_name = "неизвестный тренер"
+        await query.message.edit_text(
+            f"Вы выбрали тренера: {selected_name}. Функционал пока не реализован.\nВы будете перенаправлены в главное меню.",
+            reply_markup=main_menu()
+        )
+
+# 4. Остальной функционал (меню питания, челленджи, платный курс и т.д.)
+
 async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -224,7 +246,6 @@ async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TY
     ])
     await query.message.reply_text("Меню питания доступно для покупки:", reply_markup=keyboard)
 
-# Обработчик покупки меню питания
 async def handle_buy_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -237,7 +258,6 @@ async def handle_buy_nutrition_menu(update: Update, context: ContextTypes.DEFAUL
     else:
         await query.message.reply_text("Недостаточно баллов для покупки меню питания!")
 
-# Обработчик реферальной ссылки
 async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -247,7 +267,6 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Ваша реферальная ссылка:\n{referral_link}\n\nПоделитесь этой ссылкой с друзьями, и когда они начнут пользоваться ботом, вы получите 100 баллов!"
     )
 
-# Остальной функционал: челленджи, платный курс, чек, кабинет, "Обо мне", "Как заработать/потратить баллы", "Назад"
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -478,13 +497,12 @@ async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.message.reply_text("Главное меню", reply_markup=main_menu())
 
-# Функция main – регистрирует все обработчики
+# 5. Функция main – регистрация всех обработчиков
 def main():
     application = Application.builder().token(TOKEN).build()
 
-    # Обработчики команд
+    # Регистрируем обработчик команды /start
     application.add_handler(CommandHandler("start", start))
-
     # Обработчики кнопок
     application.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern="^instructor_"))
     application.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern="^(free_course|next_day)$"))
