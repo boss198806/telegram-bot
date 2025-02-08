@@ -183,7 +183,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
 
 # --- Обработчики выбора пола и программы для бесплатного курса ---
-
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -215,7 +214,6 @@ async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await start_free_course(query.message, context, user_id)
 
 # --- Функции для обработки команды /start и выбора инструктора ---
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id
@@ -264,11 +262,10 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     await query.answer()
     if data == "instructor_1":
         context.user_data[user_id]["instructor"] = "evgeniy"
-        await query.message.edit_text("Вы выбрали тренера: Евгений Курочкин")
-        # Отправляем видео с поддержкой потокового воспроизведения
+        # Отправляем видео сразу, без редактирования сообщения
         await context.bot.send_video(
             chat_id=query.message.chat_id,
-            video="https://github.com/boss198806/telegram-bot/raw/refs/heads/main/IMG_1484.MOV",
+            video="https://t.me/PRIVETSTVIEC/2",
             supports_streaming=True,
             caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: Евгений Курочкин",
             reply_markup=main_menu()
@@ -297,7 +294,6 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
         )
 
 # --- Остальной функционал ---
-
 async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -560,7 +556,7 @@ async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.message.reply_text("Главное меню", reply_markup=main_menu())
 
-# 3. Функция команды /start и выбор инструктора
+# 3. Функция команды /start и выбора инструктора
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id
@@ -609,11 +605,10 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     await query.answer()
     if data == "instructor_1":
         context.user_data[user_id]["instructor"] = "evgeniy"
-        await query.message.edit_text("Вы выбрали тренера: Евгений Курочкин")
-        # Отправляем видео с поддержкой потокового воспроизведения
+        # Вместо редактирования сообщения отправляем видео сразу, чтобы оно воспроизводилось
         await context.bot.send_video(
             chat_id=query.message.chat_id,
-            video="https://github.com/boss198806/telegram-bot/raw/refs/heads/main/IMG_1484.MOV",
+            video="https://t.me/PRIVETSTVIEC/2",
             supports_streaming=True,
             caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: Евгений Курочкин",
             reply_markup=main_menu()
@@ -642,7 +637,349 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
         )
 
 # --- Остальной функционал ---
+async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
+        [InlineKeyboardButton("Назад", callback_data="back")]
+    ])
+    await query.message.reply_text("Меню питания доступно для покупки:", reply_markup=keyboard)
 
+async def handle_buy_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    if user_scores.get(user_id, 0) >= 300:
+        user_scores[user_id] -= 300
+        await query.message.reply_text(
+            "Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2",
+            reply_markup=main_menu()
+        )
+    else:
+        await query.message.reply_text("Недостаточно баллов для покупки меню питания!")
+
+async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    me = await context.bot.get_me()
+    referral_link = f"https://t.me/{me.username}?start={user_id}"
+    await query.message.reply_text(
+        f"Ваша реферальная ссылка:\n{referral_link}\n\nПоделитесь этой ссылкой с друзьями, и когда они начнут пользоваться ботом, вы получите 100 баллов!"
+    )
+
+async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    if user_challenges.get(user_id):
+        await send_challenge_task(query.message, user_id)
+    elif user_scores.get(user_id, 0) >= 300:
+        buttons = [
+            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge")],
+            [InlineKeyboardButton("Назад", callback_data="back")],
+        ]
+        await query.message.reply_text(
+            "Доступ к челленджам стоит 300 баллов. Хотите приобрести?",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    else:
+        await query.message.reply_text(
+            f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(user_id, 0)} баллов.\nПродолжайте тренировки!"
+        )
+
+async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    if user_scores.get(user_id, 0) >= 300:
+        user_scores[user_id] -= 300
+        user_challenges[user_id] = {"current_day": 1}
+        await query.message.reply_text("✅ Доступ к челленджам открыт!")
+        await send_challenge_task(query.message, user_id)
+    else:
+        await query.message.reply_text("Недостаточно баллов для покупки доступа!")
+
+async def send_challenge_task(message: Update, user_id: int):
+    current_day = user_challenges[user_id]["current_day"]
+    exercises = {
+        1: [
+            "1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)",
+        ],
+        2: [
+            "1️⃣ Присед со штангой (можно без) 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)",
+        ],
+        3: [
+            "1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+            "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)",
+        ],
+        4: [
+            "1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+            "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+            "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)",
+        ],
+        5: [
+            "1️⃣ Присед со штангой (можно без) 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+            "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+            "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)",
+        ],
+    }.get(current_day, [])
+    caption = f"💪 **Челлендж: День {current_day}** 💪\n\n" + "\n".join(exercises)
+    if current_day < 5:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]
+        ])
+    else:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]
+        ])
+    await message.reply_text(
+        caption,
+        parse_mode="Markdown",
+        reply_markup=keyboard
+    )
+
+async def handle_challenge_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    if user_id not in user_challenges:
+        await query.answer("Сначала купите челлендж!")
+        return
+    current_day = user_challenges[user_id]["current_day"]
+    if current_day < 5:
+        user_challenges[user_id]["current_day"] += 1
+        await send_challenge_task(query.message, user_id)
+    else:
+        await query.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
+        del user_challenges[user_id]
+
+async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    discount = min(user_scores.get(user_id, 0) * 2, 600)
+    final_price = 2000 - discount
+    await query.message.reply_text(
+        f"📚 **Платный курс** 📚\n\n"
+        f"Стоимость курса: 2000 рублей.\n"
+        f"Ваша скидка: {discount} рублей.\n"
+        f"Итоговая сумма: {final_price} рублей.\n\n"
+        f"Переведите сумму на карту: 89236950304 (Яндекс Банк).\n"
+        f"После оплаты отправьте чек для проверки.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]
+        ]),
+    )
+    user_waiting_for_receipt[user_id] = True
+
+async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_name = update.message.from_user.first_name
+    if user_id not in user_waiting_for_receipt:
+        await update.message.reply_text("Я не жду чек от вас. Пожалуйста, выберите платный курс и отправьте чек.")
+        return
+    if not update.message.photo:
+        await update.message.reply_text("Пожалуйста, отправьте фото чека.")
+        return
+    await context.bot.send_message(
+        chat_id=GROUP_ID,
+        text=f"Чек от {user_name} (ID: {user_id}). Подтвердите оплату.",
+    )
+    photo_file_id = update.message.photo[-1].file_id
+    await context.bot.send_photo(
+        chat_id=GROUP_ID,
+        photo=photo_file_id,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Подтвердить", callback_data=f"confirm_payment_{user_id}")]
+        ]),
+    )
+    await update.message.reply_text("Чек отправлен на проверку. Ожидайте подтверждения.")
+
+async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = int(query.data.split("_")[-1])
+    user_status[user_id] = statuses[2]
+    del user_waiting_for_receipt[user_id]
+    await context.bot.send_message(
+        chat_id=user_id,
+        text="Оплата подтверждена! Вам открыт доступ к платному курсу. 🎉",
+    )
+
+async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    score = user_scores.get(user_id, 0)
+    status = user_status.get(user_id, statuses[0])
+    caption = (
+        f"👤 Ваш кабинет:\n\n"
+        f"Статус: {status}\n"
+        f"Баллы: {score}\n"
+        "Продолжайте тренироваться, чтобы улучшить статус и заработать больше баллов!"
+    )
+    try:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true",
+            caption=caption,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке фото для 'Мой кабинет': {e}")
+        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
+
+async def handle_about_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    caption = (
+        "👤 О тренере:\n\n"
+        "Курочкин Евгений Витальевич\n"
+        "Общий тренировочный стаж - 20 лет\n"
+        "Стаж работы - 15 лет\n"
+        "МС - по становой тяге\n"
+        "МС - по жиму штанги лежа\n"
+        "Судья - федеральной категории\n"
+        "Организатор соревнований\n"
+        "КМС - по бодибилдингу\n\n"
+        "20 лет в фитнесе!"
+    )
+    try:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true",
+            caption=caption,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке фото для 'Обо мне': {e}")
+        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
+
+async def handle_earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    caption = (
+        "💡 Как заработать баллы:\n\n"
+        "1. Проходите бесплатный курс и отправляйте видео-отчеты.\n"
+        "2. Участвуйте в челленджах и отправляйте видео-отчеты.\n"
+        "3. Приглашайте друзей и получайте баллы за их активность.\n"
+        "4. Покупайте платный курс и получаете дополнительные баллы."
+    )
+    try:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true",
+            caption=caption,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке фото для 'Как заработать баллы': {e}")
+        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
+
+async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    score = user_scores.get(user_id, 0)
+    caption = (
+        f"💰 Как потратить баллы:\n\n"
+        f"У вас есть {score} баллов.\n"
+        "Вы можете потратить баллы на:\n"
+        "- Скидку при покупке платного курса (1 балл = 2 рубля).\n"
+        "- Максимальная скидка - 600 рублей.\n"
+        "- Другие привилегии в будущем!"
+    )
+    try:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true",
+            caption=caption,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке фото для 'Как потратить баллы': {e}")
+        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
+
+async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# 3. Функция команды /start и выбора инструктора
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        user_id = update.effective_user.id
+        # Обработка реферального параметра
+        if context.args:
+            referrer_id_str = context.args[0]
+            try:
+                referrer_id = int(referrer_id_str)
+                if referrer_id != user_id:
+                    user_scores[referrer_id] = user_scores.get(referrer_id, 0) + 100
+                    try:
+                        await context.bot.send_message(
+                            chat_id=referrer_id,
+                            text="Поздравляем! Новый пользователь воспользовался вашей реферальной ссылкой. Вы получили 100 баллов!"
+                        )
+                    except Exception as e:
+                        logger.error(f"Не удалось отправить сообщение о реферальном бонусе пользователю {referrer_id}: {e}")
+            except ValueError:
+                pass
+
+        context.user_data.setdefault(user_id, {"current_day": 1})
+        user_scores[user_id] = user_scores.get(user_id, 0)
+        user_status[user_id] = user_status.get(user_id, statuses[0])
+        
+        # Выбор инструктора (5 кнопок)
+        instructor_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_1")],
+            [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_2")],
+            [InlineKeyboardButton("Тренер 3", callback_data="instructor_3")],
+            [InlineKeyboardButton("Тренер 4", callback_data="instructor_4")],
+            [InlineKeyboardButton("Тренер 5", callback_data="instructor_5")],
+        ])
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Выбери для себя фитнес инструктора:",
+            reply_markup=instructor_keyboard,
+        )
+    except Exception as e:
+        logger.error(f"Ошибка в /start: {e}")
+        await update.message.reply_text("Произошла ошибка. Пожалуйста, попробуйте позже.")
+
+async def handle_instructor_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    data = query.data
+    user_id = query.from_user.id
+    await query.answer()
+    if data == "instructor_1":
+        context.user_data[user_id]["instructor"] = "evgeniy"
+        # Отправляем видео с поддержкой потокового воспроизведения с новым URL
+        await context.bot.send_video(
+            chat_id=query.message.chat_id,
+            video="https://t.me/PRIVETSTVIEC/2",
+            supports_streaming=True,
+            caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: Евгений Курочкин",
+            reply_markup=main_menu()
+        )
+    elif data == "instructor_2":
+        context.user_data[user_id]["instructor"] = "anastasiya"
+        await query.message.edit_text("Вы выбрали тренера: АНАСТАСИЯ")
+        await context.bot.send_photo(
+            chat_id=query.message.chat_id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025-02-08_22-08-36.jpg?raw=true",
+            caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: АНАСТАСИЯ",
+            reply_markup=main_menu()
+        )
+    else:
+        if data == "instructor_3":
+            selected_name = "Тренер 3"
+        elif data == "instructor_4":
+            selected_name = "Тренер 4"
+        elif data == "instructor_5":
+            selected_name = "Тренер 5"
+        else:
+            selected_name = "неизвестный тренер"
+        await query.message.edit_text(
+            f"Вы выбрали тренера: {selected_name}. Функционал пока не реализован.\nВы будете перенаправлены в главное меню.",
+            reply_markup=main_menu()
+        )
+
+# --- Остальной функционал ---
 async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
