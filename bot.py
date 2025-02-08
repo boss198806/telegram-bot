@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"
 GROUP_ID = "-1002451371911"
 
-# Глобальные словари для хранения данных
+# Словари для хранения данных
 user_scores = {}
 user_status = {}
 user_reports_sent = {}
@@ -29,7 +29,7 @@ user_waiting_for_receipt = {}
 user_challenges = {}
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
-# --- Вспомогательные функции ---
+# Главное меню
 def main_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔥 Пройти бесплатный курс", callback_data="free_course")],
@@ -43,6 +43,7 @@ def main_menu():
         [InlineKeyboardButton("🔗 Реферальная ссылка", callback_data="referral")],
     ])
 
+# Функция для формирования текста кнопки "Отправить отчет" с эмодзи
 def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     gender = context.user_data[user_id].get("gender", "male")
     program = context.user_data[user_id].get("program", "home")
@@ -50,17 +51,15 @@ def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     suffix = "🏠" if program == "home" else "🏋️"
     return f"{prefix}{suffix} Отправить отчет"
 
-# --- Функции для бесплатного курса ---
+# Функция для отправки бесплатного курса (5-дневной тренировки)
 async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int):
     if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
         await message.reply_text("Пока в разработке", reply_markup=main_menu())
         return
-
     current_day = context.user_data[user_id].get("current_day", 1)
     if current_day > 5:
         await message.reply_text("Вы завершили курс! 🎉", reply_markup=main_menu())
         return
-
     photo_paths = {
         1: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9647.PNG?raw=true",
         2: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9648.PNG?raw=true",
@@ -68,7 +67,6 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
         4: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9650.PNG?raw=true",
         5: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9651.PNG?raw=true",
     }
-
     course_program = {
         1: [
             "1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)",
@@ -96,7 +94,6 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
             "3️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)",
         ],
     }
-
     exercises = course_program.get(current_day, [])
     caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
     report_button_text = get_report_button_text(context, user_id)
@@ -118,7 +115,68 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
             reply_markup=keyboard,
         )
 
-# Обработчики выбора пола и программы для бесплатного курса
+# Обработчик отправки отчета
+async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    current_day = int(query.data.split("_")[-1])
+    if user_reports_sent.get(user_id, {}).get(current_day):
+        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day}.")
+        return
+    user_waiting_for_video[user_id] = current_day
+    await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день.")
+
+# Обработчик получения видео-отчета
+async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_name = update.message.from_user.first_name
+    if user_id in user_waiting_for_video:
+        current_day = user_waiting_for_video[user_id]
+        await context.bot.send_message(
+            chat_id=GROUP_ID,
+            text=f"Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
+        )
+        await context.bot.send_video(
+            chat_id=GROUP_ID,
+            video=update.message.video.file_id
+        )
+        user_reports_sent.setdefault(user_id, {})[current_day] = True
+        user_scores[user_id] += 60
+        del user_waiting_for_video[user_id]
+        if current_day < 5:
+            context.user_data[user_id]["current_day"] += 1
+            new_day = context.user_data[user_id]["current_day"]
+            user_waiting_for_video[user_id] = new_day
+            await update.message.reply_text(
+                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.\nГотовы к следующему дню ({new_day})?",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton(f"➡️ День {new_day}", callback_data="next_day")]
+                ]),
+            )
+        else:
+            user_status[user_id] = statuses[1]
+            await update.message.reply_text(
+                f"Поздравляем! Вы завершили бесплатный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
+                reply_markup=main_menu(),
+            )
+    elif user_id in user_waiting_for_challenge_video:
+        await context.bot.send_message(
+            chat_id=GROUP_ID,
+            text=f"Видео-отчет от {user_name} (ID: {user_id}) за челлендж."
+        )
+        await context.bot.send_video(
+            chat_id=GROUP_ID,
+            video=update.message.video.file_id
+        )
+        user_scores[user_id] += 60
+        del user_waiting_for_challenge_video[user_id]
+        await update.message.reply_text(
+            f"Отчет за челлендж принят! 🎉\nВаши баллы: {user_scores[user_id]}."
+        )
+    else:
+        await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
+
+# --- Обработчики выбора пола и программы для бесплатного курса ---
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -199,10 +257,10 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     if data == "instructor_1":
         context.user_data[user_id]["instructor"] = "evgeniy"
         await query.message.edit_text("Вы выбрали тренера: Евгений Курочкин")
-        # Отправляем видео с поддержкой потокового воспроизведения (убедитесь, что видео в MP4 формате для стриминга)
+        # Отправляем новое видео с поддержкой потокового воспроизведения
         await context.bot.send_video(
             chat_id=query.message.chat_id,
-            video="https://github.com/boss198806/telegram-bot/raw/refs/heads/main/IMG_1484.MOV",
+            video="https://github.com/boss198806/telegram-bot/raw/refs/heads/main/IMG_2068.MP4",
             supports_streaming=True,
             caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: Евгений Курочкин",
             reply_markup=main_menu()
