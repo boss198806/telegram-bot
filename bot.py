@@ -53,6 +53,11 @@ def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
 
 # Функция для отправки бесплатного курса (5-дневной тренировки)
 async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+    # Если выбранная комбинация пола и программы НЕ равна Женщина/Дома, выводим сообщение "Пока в разработке"
+    if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
+        await message.reply_text("Пока в разработке", reply_markup=main_menu())
+        return
+
     current_day = context.user_data[user_id].get("current_day", 1)
     if current_day > 5:
         await message.reply_text("Вы завершили курс! 🎉", reply_markup=main_menu())
