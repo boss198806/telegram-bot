@@ -40,12 +40,32 @@ def main_menu():
         [InlineKeyboardButton("💡 Как заработать баллы", callback_data="earn_points")],
         [InlineKeyboardButton("💰 Как потратить баллы", callback_data="spend_points")],
         [InlineKeyboardButton("ℹ️ Обо мне", callback_data="about_me")],
+        [InlineKeyboardButton("🔗 Реферальная ссылка", callback_data="referral")],
     ])
 
 # Функция старта
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id
+
+        # Если при запуске команды /start передан параметр (реферальный ID)
+        if context.args:
+            referrer_id_str = context.args[0]
+            try:
+                referrer_id = int(referrer_id_str)
+                if referrer_id != user_id:
+                    # Начисляем 100 баллов рефереру
+                    user_scores[referrer_id] = user_scores.get(referrer_id, 0) + 100
+                    try:
+                        await context.bot.send_message(
+                            chat_id=referrer_id,
+                            text="Поздравляем! Новый пользователь воспользовался вашей реферальной ссылкой. Вы получили 100 баллов!"
+                        )
+                    except Exception as e:
+                        logger.error(f"Не удалось отправить сообщение о реферальном бонусе пользователю {referrer_id}: {e}")
+            except ValueError:
+                pass
+
         context.user_data.setdefault(user_id, {"current_day": 1})
         user_scores[user_id] = user_scores.get(user_id, 0)
         user_status[user_id] = user_status.get(user_id, statuses[0])
@@ -82,6 +102,17 @@ async def handle_buy_nutrition_menu(update: Update, context: ContextTypes.DEFAUL
         )
     else:
         await query.message.reply_text("Недостаточно баллов для покупки меню питания!")
+
+# Обработчик реферальной ссылки
+async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    # Получаем данные о боте для формирования ссылки
+    me = await context.bot.get_me()
+    referral_link = f"https://t.me/{me.username}?start={user_id}"
+    await query.message.reply_text(
+        f"Ваша реферальная ссылка:\n{referral_link}\n\nПоделитесь этой ссылкой с друзьями, и когда они начнут пользоваться ботом, вы получите 100 баллов!"
+    )
 
 # Бесплатный курс
 async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -196,12 +227,9 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Проверяем, не последний ли день
         if current_day < 5:
-            # Увеличиваем день
             context.user_data[user_id]["current_day"] += 1
             new_day = context.user_data[user_id]["current_day"]
-
-            # Готовимся к следующему дню
-            user_waiting_for_video[user_id] = new_day  # Включаем ожидание нового отчета
+            user_waiting_for_video[user_id] = new_day
             await update.message.reply_text(
                 f"Отчет за день {current_day} принят! 🎉\n"
                 f"Ваши баллы: {user_scores[user_id]}.\n"
@@ -211,7 +239,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ),
             )
         else:
-            # Завершение курса
             user_status[user_id] = statuses[1]
             await update.message.reply_text(
                 f"Поздравляем! Вы завершили бесплатный курс! 🎉\n"
@@ -522,6 +549,7 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="spend_points"))
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="nutrition_menu"))
     application.add_handler(CallbackQueryHandler(handle_buy_nutrition_menu, pattern="buy_nutrition_menu"))
+    application.add_handler(CallbackQueryHandler(handle_referral, pattern="^referral$"))
     application.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern="^challenge_next$"))
     application.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
 
