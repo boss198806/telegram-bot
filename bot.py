@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"
 GROUP_ID = "-1002451371911"
 
-# Глобальные словари
+# Глобальные словари для хранения данных
 user_scores = {}
 user_status = {}
 user_reports_sent = {}
@@ -29,7 +29,7 @@ user_waiting_for_receipt = {}
 user_challenges = {}
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
-# 1. Вспомогательные функции
+# --- Вспомогательные функции ---
 
 def main_menu():
     return InlineKeyboardMarkup([
@@ -51,8 +51,9 @@ def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     suffix = "🏠" if program == "home" else "🏋️"
     return f"{prefix}{suffix} Отправить отчет"
 
-# 2. Функции для бесплатного курса
+# --- Функции бесплатного курса ---
 
+# Функция отправки 5-дневной тренировки (бесплатного курса)
 async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int):
     # Бесплатная программа доступна только для женщин, занимающихся дома
     if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
@@ -121,8 +122,8 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
             reply_markup=keyboard,
         )
 
+# Обработчик команды free_course (если пол/программа не выбраны, запрашиваем их)
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Если пользователь нажал "free_course", сначала запросим выбор пола, если его нет
     query = update.callback_query
     user_id = query.from_user.id
     if query.data == "free_course":
@@ -135,6 +136,7 @@ async def handle_free_course_callback(update: Update, context: ContextTypes.DEFA
             return
     await start_free_course(query.message, context, user_id)
 
+# Обработчик выбора пола
 async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -145,6 +147,7 @@ async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
     await query.message.reply_text("Выберите программу:", reply_markup=program_keyboard)
 
+# Обработчик выбора программы
 async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -152,7 +155,7 @@ async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data[user_id]["current_day"] = 1
     await start_free_course(query.message, context, user_id)
 
-# 3. Функция старта (CommandHandler "start") и выбор инструктора
+# --- Функции для обработки команды /start и выбора инструктора ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -204,7 +207,7 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     if data == "instructor_1":
         context.user_data[user_id]["instructor"] = "evgeniy"
         await query.message.edit_text("Вы выбрали тренера: Евгений Курочкин")
-        # Отправляем видео с поддержкой потокового воспроизведения
+        # Отправляем видео вместо фото с поддержкой потокового воспроизведения
         await context.bot.send_video(
             chat_id=query.message.chat_id,
             video="https://github.com/boss198806/telegram-bot/raw/refs/heads/main/IMG_1484.MOV",
@@ -235,7 +238,7 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
             reply_markup=main_menu()
         )
 
-# 4. Остальной функционал (меню питания, челленджи, платный курс и т.д.)
+# --- Остальной функционал ---
 
 async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -497,13 +500,14 @@ async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.message.reply_text("Главное меню", reply_markup=main_menu())
 
-# 5. Функция main – регистрация всех обработчиков
+# --- Функция main ---
 def main():
     application = Application.builder().token(TOKEN).build()
 
     # Регистрируем обработчик команды /start
     application.add_handler(CommandHandler("start", start))
-    # Обработчики кнопок
+
+    # Регистрируем обработчики кнопок
     application.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern="^instructor_"))
     application.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern="^(free_course|next_day)$"))
     application.add_handler(CallbackQueryHandler(handle_gender, pattern="^gender_"))
@@ -523,7 +527,7 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern="^challenge_next$"))
     application.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
 
-    # Обработчики сообщений
+    # Регистрируем обработчики сообщений (видео и фото)
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
     application.add_handler(MessageHandler(filters.PHOTO, handle_receipt))
 
