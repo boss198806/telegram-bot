@@ -43,15 +43,15 @@ def main_menu():
         [InlineKeyboardButton("🔗 Реферальная ссылка", callback_data="referral")],
     ])
 
-# Функция для формирования кнопки «Отправить отчет» с эмоджи в зависимости от выбора пола и программы
+# Функция для формирования текста кнопки "Отправить отчет" с эмодзи в зависимости от выбора пола и программы
 def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     gender = context.user_data[user_id].get("gender", "male")
     program = context.user_data[user_id].get("program", "home")
     prefix = "👩" if gender == "female" else "👨"
-    suffix = "🏋️" if program == "gym" else "🏠"
+    suffix = "🏠" if program == "home" else "🏋️"
     return f"{prefix}{suffix} Отправить отчет"
 
-# Функция для отправки тренировки (бесплатного курса) – используется как при старте и при переходе на следующий день
+# Функция для отправки бесплатного курса (5-дневной тренировки)
 async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int):
     current_day = context.user_data[user_id].get("current_day", 1)
     if current_day > 5:
@@ -115,7 +115,7 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
             reply_markup=keyboard,
         )
 
-# Функция старта – сначала предлагается выбрать инструктора
+# Функция старта – сначала предлагается выбрать инструктор
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id
@@ -141,7 +141,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_scores[user_id] = user_scores.get(user_id, 0)
         user_status[user_id] = user_status.get(user_id, statuses[0])
         
-        # Предлагается выбрать инструктора (5 кнопок)
+        # Выбор инструктора (5 кнопок)
         instructor_keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_1")],
             [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_2")],
@@ -162,9 +162,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_instructor_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     data = query.data
+    user_id = query.from_user.id
     await query.answer()
     if data == "instructor_1":
-        # Евгений Курочкин – основной функционал
+        context.user_data[user_id]["instructor"] = "evgeniy"
         await query.message.edit_text("Вы выбрали тренера: Евгений Курочкин")
         await context.bot.send_photo(
             chat_id=query.message.chat_id,
@@ -173,7 +174,7 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
             reply_markup=main_menu()
         )
     elif data == "instructor_2":
-        # АНАСТАСИЯ – дублируем функционал, но с другим изображением
+        context.user_data[user_id]["instructor"] = "anastasiya"
         await query.message.edit_text("Вы выбрали тренера: АНАСТАСИЯ")
         await context.bot.send_photo(
             chat_id=query.message.chat_id,
@@ -182,7 +183,6 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
             reply_markup=main_menu()
         )
     else:
-        # Для остальных – пока функционал не реализован
         if data == "instructor_3":
             selected_name = "Тренер 3"
         elif data == "instructor_4":
@@ -196,35 +196,27 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
             reply_markup=main_menu()
         )
 
-# --- Новый блок: выбор пола и программы для бесплатного курса ---
+# --- Блок выбора пола и программы для бесплатного курса ---
 
-# Обработчик бесплатного курса
-# Если пользователь нажал кнопку "БЕСПЛАТНЫЙ КУРС", а его выбор пола/программы ещё не сделан,
-# показываем сначала выбор пола.
+# Обработчик бесплатного курса: если выбор пола/программы не сделан – сначала запрашиваем его
 async def handle_free_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
     if query.data == "free_course":
         if "gender" not in context.user_data[user_id] or "program" not in context.user_data[user_id]:
-            # Показываем выбор пола
             gender_keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("Мужчина", callback_data="gender_male"),
                  InlineKeyboardButton("Женщина", callback_data="gender_female")]
             ])
             await query.message.reply_text("Ваш пол:", reply_markup=gender_keyboard)
             return
-    # Если выбор уже сделан (или при нажатии "next_day"), запускаем бесплатный курс
     await start_free_course(query.message, context, user_id)
 
 # Обработчик выбора пола
 async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    if query.data == "gender_male":
-        context.user_data[user_id]["gender"] = "male"
-    else:
-        context.user_data[user_id]["gender"] = "female"
-    # После выбора пола показываем выбор программы
+    context.user_data[user_id]["gender"] = "male" if query.data == "gender_male" else "female"
     program_keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
          InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]
@@ -235,17 +227,13 @@ async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    if query.data == "program_home":
-        context.user_data[user_id]["program"] = "home"
-    else:
-        context.user_data[user_id]["program"] = "gym"
-    # Инициализируем день бесплатного курса
+    context.user_data[user_id]["program"] = "home" if query.data == "program_home" else "gym"
     context.user_data[user_id]["current_day"] = 1
     await start_free_course(query.message, context, user_id)
 
 # --- Конец блока выбора пола и программы ---
 
-# Обработка кнопки "Меню питания"
+# Обработчик кнопки "Меню питания"
 async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -278,8 +266,7 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Ваша реферальная ссылка:\n{referral_link}\n\nПоделитесь этой ссылкой с друзьями, и когда они начнут пользоваться ботом, вы получите 100 баллов!"
     )
 
-# Далее – остальные функции (бесплатный курс продолжение, отправка отчёта, видео, челленджи, платный курс и т.д.)
-
+# Далее – логика отправки отчётов, видео, челленджи, платный курс и т.д.
 async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -311,9 +298,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             new_day = context.user_data[user_id]["current_day"]
             user_waiting_for_video[user_id] = new_day
             await update.message.reply_text(
-                f"Отчет за день {current_day} принят! 🎉\n"
-                f"Ваши баллы: {user_scores[user_id]}.\n"
-                f"Готовы к следующему дню ({new_day})?",
+                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.\nГотовы к следующему дню ({new_day})?",
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton(f"➡️ День {new_day}", callback_data="next_day")]]
                 ),
@@ -321,8 +306,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             user_status[user_id] = statuses[1]
             await update.message.reply_text(
-                f"Поздравляем! Вы завершили бесплатный курс! 🎉\n"
-                f"Ваши баллы: {user_scores[user_id]}.",
+                f"Поздравляем! Вы завершили бесплатный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
                 reply_markup=main_menu(),
             )
     elif user_id in user_waiting_for_challenge_video:
@@ -337,8 +321,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_scores[user_id] += 60
         del user_waiting_for_challenge_video[user_id]
         await update.message.reply_text(
-            f"Отчет за челлендж принят! 🎉\n"
-            f"Ваши баллы: {user_scores[user_id]}."
+            f"Отчет за челлендж принят! 🎉\nВаши баллы: {user_scores[user_id]}."
         )
     else:
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
@@ -359,9 +342,7 @@ async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     else:
         await query.message.reply_text(
-            f"Для доступа к челленджам нужно 300 баллов.\n"
-            f"У вас: {user_scores.get(user_id, 0)} баллов.\n"
-            "Продолжайте тренировки!"
+            f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(user_id, 0)} баллов.\nПродолжайте тренировки!"
         )
 
 async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -444,9 +425,7 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"Итоговая сумма: {final_price} рублей.\n\n"
         f"Переведите сумму на карту: 89236950304 (Яндекс Банк).\n"
         f"После оплаты отправьте чек для проверки.",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]]
-        ),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]]),
     )
     user_waiting_for_receipt[user_id] = True
 
