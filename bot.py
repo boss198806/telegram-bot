@@ -22,7 +22,7 @@ GROUP_ID = "-1002451371911"
 user_scores = {}
 user_status = {}
 user_reports_sent = {}
-user_waiting_for_video = {}             # Для бесплатного и платного курсов
+user_waiting_for_video = {}             # Используется и для бесплатного, и для платного курсов
 user_waiting_for_challenge_video = {}
 user_waiting_for_receipt = {}
 user_challenges = {}
@@ -44,21 +44,21 @@ def main_menu():
 def get_report_button_text(ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
     gender = ctx.user_data[user_id].get("gender", "male")
     prog = ctx.user_data[user_id].get("program", "home")
-    return ("👩" if gender=="female" else "👨") + ("🏠" if prog=="home" else "🏋️") + " Отправить отчет"
+    return ("👩" if gender == "female" else "👨") + ("🏠" if prog == "home" else "🏋️") + " Отправить отчет"
 
 # --------------------- БЕСПЛАТНЫЙ КУРС ---------------------
 async def start_free_course(msg, ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
-    if not (ctx.user_data[user_id].get("gender")=="female" and ctx.user_data[user_id].get("program")=="home"):
+    if not (ctx.user_data[user_id].get("gender") == "female" and ctx.user_data[user_id].get("program") == "home"):
         return await msg.reply_text("Пока в разработке", reply_markup=main_menu())
     day = ctx.user_data[user_id].get("current_day", 1)
     if day > 5:
         return await msg.reply_text("Вы завершили курс! 🎉", reply_markup=main_menu())
     photos = {
-        1:"https://github.com/boss198806/telegram-bot/blob/main/IMG_9647.PNG?raw=true",
-        2:"https://github.com/boss198806/telegram-bot/blob/main/IMG_9648.PNG?raw=true",
-        3:"https://github.com/boss198806/telegram-bot/blob/main/IMG_9649.PNG?raw=true",
-        4:"https://github.com/boss198806/telegram-bot/blob/main/IMG_9650.PNG?raw=true",
-        5:"https://github.com/boss198806/telegram-bot/blob/main/IMG_9651.PNG?raw=true",
+        1: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9647.PNG?raw=true",
+        2: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9648.PNG?raw=true",
+        3: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9649.PNG?raw=true",
+        4: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9650.PNG?raw=true",
+        5: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9651.PNG?raw=true",
     }
     course = {
         1: [
@@ -117,8 +117,8 @@ async def handle_send_paid_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE
     user_id = query.from_user.id
     day_str = query.data.split("_")[-1]  # Например, "1"
     paid_day = int(day_str)
+    # Устанавливаем, что ждём видео для платного дня (НЕ перезаписываем, чтобы не сбрасывать значение)
     user_waiting_for_video[user_id] = ("paid", paid_day)
-    ctx.user_data[user_id]["paid_current_day"] = paid_day
     await query.message.reply_text(
         f"Пожалуйста, отправьте видео-отчет за платный день {paid_day}."
     )
@@ -190,7 +190,7 @@ async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
 
-# --------------------- ЛОГИКА ПОЛ/ПРОГРАММА ---------------------
+# --------------------- ЛОГИКА ПОЛ/ПРОГРАММА (БЕСПЛАТНОГО) ---------------------
 async def handle_free_course_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -205,7 +205,7 @@ async def handle_free_course_callback(update: Update, ctx: ContextTypes.DEFAULT_
 async def handle_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    ctx.user_data[user_id]["gender"] = "male" if query.data=="gender_male" else "female"
+    ctx.user_data[user_id]["gender"] = "male" if query.data == "gender_male" else "female"
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
          InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]
@@ -215,7 +215,7 @@ async def handle_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def handle_program(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    ctx.user_data[user_id]["program"] = "home" if query.data=="program_home" else "gym"
+    ctx.user_data[user_id]["program"] = "home" if query.data == "program_home" else "gym"
     ctx.user_data[user_id]["current_day"] = 1
     await start_free_course(query.message, ctx, user_id)
 
@@ -281,11 +281,11 @@ async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT_
         )
     else:
         sel = "неизвестный тренер"
-        if data=="instructor_3":
+        if data == "instructor_3":
             sel = "Тренер 3"
-        elif data=="instructor_4":
+        elif data == "instructor_4":
             sel = "Тренер 4"
-        elif data=="instructor_5":
+        elif data == "instructor_5":
             sel = "Тренер 5"
         await query.message.edit_text(
             f"Вы выбрали тренера: {sel}. Функционал пока не реализован.\nВы будете перенаправлены в главное меню.",
@@ -454,7 +454,7 @@ async def handle_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def confirm_payment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Подтверждаем оплату и выдаем доступ к платному курсу с 1 дня."""
     query = update.callback_query
-    await query.answer()  # Обязательно отвечаем на callback, чтобы не возникало ошибок
+    await query.answer()  # Чтобы callback не вызывал ошибок
     user_id = int(query.data.split("_")[-1])
     user_status[user_id] = statuses[2]  # Например, 'Чемпион'
     if user_id in user_waiting_for_receipt:
@@ -491,8 +491,8 @@ async def handle_send_paid_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE
     user_id = query.from_user.id
     day_str = query.data.split("_")[-1]
     paid_day = int(day_str)
+    # Здесь не перезаписываем "paid_current_day", чтобы не было двойного увеличения
     user_waiting_for_video[user_id] = ("paid", paid_day)
-    ctx.user_data[user_id]["paid_current_day"] = paid_day
     await query.message.reply_text(
         f"Пожалуйста, отправьте видео-отчет за платный день {paid_day}."
     )
@@ -503,8 +503,8 @@ async def handle_paid_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     paid_day = ctx.user_data[user_id].get("paid_current_day", 1)
     if paid_day < 5:
-        ctx.user_data[user_id]["paid_current_day"] = paid_day + 1
         next_day = paid_day + 1
+        ctx.user_data[user_id]["paid_current_day"] = next_day
         paid_program = {
             1: [
                 "Махи назад с утяжелителями 3х25+5 https://t.me/c/2241417709/337/338",
@@ -673,7 +673,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern="^challenge_next$"))
     app.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
 
-    # Видео и Фото
+    # Видео и фото
     app.add_handler(MessageHandler(filters.VIDEO, handle_video))
     app.add_handler(MessageHandler(filters.PHOTO, handle_receipt))
 
