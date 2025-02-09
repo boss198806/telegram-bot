@@ -45,6 +45,7 @@ def get_report_button_text(ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
     gender = ctx.user_data[user_id].get("gender", "male")
     prog = ctx.user_data[user_id].get("program", "home")
     return ("👩" if gender=="female" else "👨") + ("🏠" if prog=="home" else "🏋️") + " Отправить отчет"
+
 # --------------------- БЕСПЛАТНЫЙ КУРС ---------------------
 async def start_free_course(msg, ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
     if not (ctx.user_data[user_id].get("gender")=="female" and ctx.user_data[user_id].get("program")=="home"):
@@ -109,6 +110,7 @@ async def handle_send_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
+    # Проверяем бесплатный курс
     if user_id in user_waiting_for_video:
         day = user_waiting_for_video[user_id]
         await ctx.bot.send_message(
@@ -139,7 +141,7 @@ async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 reply_markup=main_menu()
             )
     else:
-        # Проверяем, не платный ли день
+        # Проверяем платный курс
         if "paid_current_day" in ctx.user_data.get(user_id, {}):
             day_paid = ctx.user_data[user_id]["paid_current_day"]
             await ctx.bot.send_message(
@@ -150,6 +152,7 @@ async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 chat_id=GROUP_ID,
                 video=update.message.video.file_id
             )
+            # Начислим 30 баллов за платный курс
             user_scores[user_id] += 30
             ctx.user_data[user_id]["paid_current_day"] = day_paid + 1
             if day_paid < 5:
@@ -167,9 +170,10 @@ async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 )
                 ctx.user_data[user_id].pop("paid_current_day", None)
         else:
+            # Если не ждем платное или бесплатное, говорим:
             await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
 
-# --------------------- ЛОГИКА ПОЛ/ПРОГРАММА ---------------------
+# --------------------- Пол/Программа ---------------------
 async def handle_free_course_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -198,7 +202,7 @@ async def handle_program(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data[user_id]["current_day"] = 1
     await start_free_course(query.message, ctx, user_id)
 
-# --------------------- /start, ВЫБОР ИНСТРУКТОРА ---------------------
+# --------------------- Команда /start, выбор инструктора ---------------------
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id
@@ -271,7 +275,7 @@ async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT_
             reply_markup=main_menu()
         )
 
-# --------------------- ОСТАЛОЙ ФУНКЦИОНАЛ ---------------------
+# --------------------- Меню питания, рефералка, челленджи и т.п. ---------------------
 async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -300,7 +304,7 @@ async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     link = f"https://t.me/{me.username}?start={user_id}"
     await query.message.reply_text(
         f"Ваша реферальная ссылка:\n{link}\n\n"
-        "Поделитесь ею с друзьями, и вы получите 100 баллов!"
+        "Поделитесь ею с друзьями, и когда они начнут пользоваться ботом, вы получите 100 баллов!"
     )
 
 async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -381,8 +385,9 @@ async def handle_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TY
         await query.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
         del user_challenges[user_id]
 
-# --------------------- ЛОГИКА ПЛАТНОГО КУРСА ---------------------
+# --------------------- ПЛАТНЫЙ КУРС ---------------------
 async def handle_paid_course(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Показываем стоимость, скидку и кнопку 'Отправить чек'."""
     query = update.callback_query
     user_id = query.from_user.id
     discount = min(user_scores.get(user_id, 0) * 2, 600)
@@ -400,114 +405,15 @@ async def handle_paid_course(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
     user_waiting_for_receipt[user_id] = True
 
-# Новая функция: пользователь нажал кнопку «Отправить чек»
-async def handle_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    user_name = update.message.from_user.first_name
-    if user_id not in user_waiting_for_receipt:
-        return await update.message.reply_text(
-            "Я не жду чек от вас. Пожалуйста, выберите платный курс и отправьте чек."
-        )
-    if not update.message.photo:
-        return await update.message.reply_text("Пожалуйста, отправьте фото чека.")
-    await ctx.bot.send_message(
-        chat_id=GROUP_ID,
-        text=f"Чек от {user_name} (ID: {user_id}). Подтвердите оплату."
-    )
-    photo_id = update.message.photo[-1].file_id
-    await ctx.bot.send_photo(
-        chat_id=GROUP_ID,
-        photo=photo_id,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Подтвердить", callback_data=f"confirm_payment_{user_id}")]
-        ])
-    )
-    await update.message.reply_text("Чек отправлен на проверку. Ожидайте подтверждения.")
-
-
-
-# ФУНКЦИЯ handle_paid_next_day (требуется для "^paid_next_day$")
-async def handle_paid_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Если пользователь нажал кнопку 'paid_next_day',
-       переводим пользователя к следующему дню платного курса."""
+# Новая функция: пользователь нажал "Отправить чек"
+async def handle_send_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    day_paid = ctx.user_data[user_id].get("paid_current_day", 1)
-    if day_paid < 5:
-        ctx.user_data[user_id]["paid_current_day"] = day_paid + 1
-        # Высылаем следующий день
-        next_day = day_paid + 1
-        paid_program = {
-            1: [
-                "Махи назад с утяжелителями 3х25+5 https://t.me/c/2241417709/337/338",
-                "Выпады 3х30 шагов х 2кг https://t.me/c/2241417709/157/158",
-                "Разведение ног 3х20 https://t.me/c/2241417709/128/129",
-                "Сведение ног 3х20 https://t.me/c/2241417709/126/127",
-                "Сгибание ног 3х15 https://t.me/c/2241417709/130/131",
-            ],
-            2: [
-                "Косые скручивания 3х30+10 https://t.me/c/2241417709/284/285",
-                "Отжимания от пола 3х15+5 https://t.me/c/2241417709/167/168",
-                "Лодочка с локтями 3х20+5 https://t.me/c/2241417709/183/184",
-                "Жим гантелей 3х15+5 (вес подбираешь) https://t.me/c/2241417709/175/176",
-                "Гантели в развороте 3х15+5 https://t.me/c/2241417709/222/223",
-                "Разгибание с веревкой 3х1+5 https://t.me/c/2241417709/260/261",
-            ],
-            3: [
-                "Подъёмы ног 3х15+5 https://t.me/c/2241417709/270/271",
-                "Разгибание ног 3х15+5 https://t.me/c/2241417709/134/135",
-                "Выпады назад 3х15 https://t.me/c/2241417709/155/156",
-                "Ягодичный мост 3х20+5 https://t.me/c/2241417709/381/382",
-                "Двойные разведения ног 3х20+5 https://t.me/c/2241417709/123/125",
-                "Мертвая тяга с гантелями 3х15+5 https://t.me/c/2241417709/136/137",
-            ],
-            4: [
-                "Скручивания 3х20+10 https://t.me/c/2241417709/379/380",
-                "Отжимания в ТРХ ремнях 3х15+5 https://t.me/c/2241417709/159/160",
-                "Подтягивания в ТРХ ремнях 3х15 https://t.me/c/2241417709/188/189",
-                "Разводка с гантелями 35 3х15+5 https://t.me/c/2241417709/169/170",
-                "Тяга блока к груди широким хватом 3х12 https://t.me/c/2241417709/210/211",
-                "Жим гантелей сидя 3х12 https://t.me/c/2241417709/115/117",
-                "Скручивания на скамье 3х20 https://t.me/c/2241417709/272/273",
-            ],
-            5: [
-                "Вместо дня 5 оставим пример или любую финальную программу 🏆",
-            ],
-        }
-        ex = paid_program[next_day]
-        text = f"📚 **Платный курс: День {next_day}** 📚\n\n" + "\n".join(ex) + "\n\nОтправьте видео-отчет за день!"
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Отправить отчет", callback_data=f"paid_video_day_{next_day}")]
-        ])
-        await query.message.reply_text(text, parse_mode="Markdown", reply_markup=kb)
-    else:
-        # Если уже день>=5, завершаем
-        await query.message.reply_text(
-            "Поздравляем! Вы завершили платный курс! 🎉",
-            reply_markup=main_menu()
-        )
-        ctx.user_data[user_id].pop("paid_current_day", None)
-
-async def handle_paid_course(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    discount = min(user_scores.get(user_id, 0) * 2, 600)
-    price = 2000 - discount
-    await query.message.reply_text(
-        f"📚 **Платный курс** 📚\n\n"
-        f"Стоимость курса: 2000 рублей.\n"
-        f"Ваша скидка: {discount} рублей.\n"
-        f"Итоговая сумма: {price} рублей.\n\n"
-        f"Переведите сумму на карту: 89236950304 (Яндекс Банк).\n"
-        f"После оплаты отправьте чек для проверки.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]
-        ])
-    )
     user_waiting_for_receipt[user_id] = True
+    await query.message.reply_text("Пожалуйста, отправьте фото чека об оплате.")
 
-# --------------------- ОБРАБОТКА ЧЕКА ---------------------
 async def handle_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """При получении фото чека – проверяем, действительно ли его ждем."""
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
     if user_id not in user_waiting_for_receipt:
@@ -531,6 +437,7 @@ async def handle_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Чек отправлен на проверку. Ожидайте подтверждения.")
 
 async def confirm_payment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Подтверждаем оплату из группы; выдаем доступ к платному курсу с 1 дня."""
     query = update.callback_query
     user_id = int(query.data.split("_")[-1])
     user_status[user_id] = statuses[2]  # Например, 'Чемпион'
@@ -539,9 +446,9 @@ async def confirm_payment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         chat_id=user_id,
         text="Оплата подтверждена! Вам открыт доступ к платному курсу. 🎉"
     )
-    # Стартуем с первого дня платного курса
+    # Начинаем платный курс с 1 дня
     ctx.user_data[user_id]["paid_current_day"] = 1
-    # Сразу отправим день 1
+    # Пример программы на день 1
     day1_ex = [
         "Махи назад с утяжелителями 3х25+5 https://t.me/c/2241417709/337/338",
         "Выпады 3х30 шагов х 2кг https://t.me/c/2241417709/157/158",
@@ -549,19 +456,19 @@ async def confirm_payment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "Сведение ног 3х20 https://t.me/c/2241417709/126/127",
         "Сгибание ног 3х15 https://t.me/c/2241417709/130/131",
     ]
-    text_day1 = ("📚 **Платный курс: День 1** 📚\n\n" + "\n".join(day1_ex) +
-                 "\n\nОтправьте видео-отчет за день!")
+    txt_day1 = ("📚 **Платный курс: День 1** 📚\n\n" + "\n".join(day1_ex)
+                + "\n\nОтправьте видео-отчет за день!")
     kb_day1 = InlineKeyboardMarkup([
         [InlineKeyboardButton("Отправить отчет", callback_data="paid_video_day_1")]
     ])
     await ctx.bot.send_message(
         chat_id=user_id,
-        text=text_day1,
+        text=txt_day1,
         parse_mode="Markdown",
         reply_markup=kb_day1
     )
 
-# --------------------- 'Мой кабинет' и т.д. ---------------------
+# --------------------- Остальные части (Мой кабинет, Обо мне, и т.д.) ---------------------
 async def handle_my_cabinet(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -668,6 +575,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_challenges, pattern="^challenge_menu$"))
     app.add_handler(CallbackQueryHandler(buy_challenge, pattern="^buy_challenge$"))
     app.add_handler(CallbackQueryHandler(handle_paid_course, pattern="^paid_course$"))
+    # Новое: нажатие "Отправить чек"
     app.add_handler(CallbackQueryHandler(handle_send_receipt, pattern="^send_receipt$"))
     app.add_handler(CallbackQueryHandler(confirm_payment, pattern="^confirm_payment_"))
     app.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="^my_cabinet$"))
@@ -679,9 +587,6 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_referral, pattern="^referral$"))
     app.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern="^challenge_next$"))
     app.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
-
-    # ОБРАБОТЧИК "paid_next_day" ВОТ ЗДЕСЬ:
-    app.add_handler(CallbackQueryHandler(handle_paid_next_day, pattern="^paid_next_day$"))
 
     # Видео / Фото
     app.add_handler(MessageHandler(filters.VIDEO, handle_video))
