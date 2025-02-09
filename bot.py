@@ -59,6 +59,43 @@ def get_report_button_text(ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
             ("🏠" if prog=="home" else "🏋️") +
             " Отправить отчет 📹")
 
+# --------------------- ФУНКЦИЯ /start ---------------------
+async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    try:
+        user_id = update.effective_user.id
+        if ctx.args:
+            try:
+                ref = int(ctx.args[0])
+                if ref != user_id:
+                    user_scores[user_id] = user_scores.get(user_id, 0) + 100
+                    try:
+                        await ctx.bot.send_message(
+                            chat_id=ref,
+                            text="🎉 Поздравляем! Новый пользователь воспользовался вашей реферальной ссылкой. Вы получили 100 баллов!"
+                        )
+                    except Exception as e:
+                        logger.error(f"Реферальный бонус: {e}")
+            except ValueError:
+                pass
+        ctx.user_data.setdefault(user_id, {"current_day": 1})
+        user_scores[user_id] = user_scores.get(user_id, 0)
+        user_status[user_id] = user_status.get(user_id, statuses[0])
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔥 Евгений Курочкин", callback_data="instructor_1"),
+             InlineKeyboardButton("💫 АНАСТАСИЯ", callback_data="instructor_2")],
+            [InlineKeyboardButton("🏋️ Тренер 3", callback_data="instructor_3")],
+            [InlineKeyboardButton("🤼 Тренер 4", callback_data="instructor_4")],
+            [InlineKeyboardButton("🤸 Тренер 5", callback_data="instructor_5")],
+        ])
+        await ctx.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Выбери для себя фитнес инструктора:",
+            reply_markup=kb
+        )
+    except Exception as e:
+        logger.error(f"Ошибка в /start: {e}")
+        await update.message.reply_text("Произошла ошибка. Пожалуйста, попробуйте позже.")
+
 # --------------------- БЕСПЛАТНЫЙ КУРС ---------------------
 async def start_free_course(msg, ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
     instructor = ctx.user_data[user_id].get("instructor")
@@ -87,31 +124,21 @@ async def start_free_course(msg, ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
         5:"https://github.com/boss198806/telegram-bot/blob/main/IMG_9651.PNG?raw=true",
     }
     course = {
-        1: [
-            "1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)",
+        1: ["1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)",
             "2️⃣ Ягодичный мост 3x30 [Видео](https://t.me/c/2241417709/381/382)",
-            "3️⃣ Велосипед 3x15 [Видео](https://t.me/c/2241417709/278/279)"
-        ],
-        2: [
-            "1️⃣ Отжимания от пола 3x15 [Видео](https://t.me/c/2241417709/167/168)",
+            "3️⃣ Велосипед 3x15 [Видео](https://t.me/c/2241417709/278/279)"],
+        2: ["1️⃣ Отжимания от пола 3x15 [Видео](https://t.me/c/2241417709/167/168)",
             "2️⃣ Лодочка прямые руки 3x30 [Видео](https://t.me/c/2241417709/395/396)",
-            "3️⃣ Полные подъёмы корпуса 3x20 [Видео](https://t.me/c/2241417709/274/275)"
-        ],
-        3: [
-            "1️⃣ Выпады назад 3x15 [Видео](https://t.me/c/2241417709/155/156)",
+            "3️⃣ Полные подъёмы корпуса 3x20 [Видео](https://t.me/c/2241417709/274/275)"],
+        3: ["1️⃣ Выпады назад 3x15 [Видео](https://t.me/c/2241417709/155/156)",
             "2️⃣ Махи в бок с колен 3x20 [Видео](https://t.me/c/2241417709/385/386)",
-            "3️⃣ Косые с касанием пяток 3x15 [Видео](https://t.me/c/2241417709/282/283)"
-        ],
-        4: [
-            "1️⃣ Поочередные подъемы с гантелями 4x20 [Видео](https://t.me/c/2241417709/226/227)",
+            "3️⃣ Косые с касанием пяток 3x15 [Видео](https://t.me/c/2241417709/282/283)"],
+        4: ["1️⃣ Поочередные подъемы с гантелями 4x20 [Видео](https://t.me/c/2241417709/226/227)",
             "2️⃣ Узкие отжимания 3x15 [Видео](https://t.me/c/2241417709/256/257)",
-            "3️⃣ Планка 3x1 мин [Видео](https://t.me/c/2241417709/286/296)"
-        ],
-        5: [
-            "1️⃣ Присед со штангой (без штанги) 3x20 [Видео](https://t.me/c/2241417709/140/141)",
+            "3️⃣ Планка 3x1 мин [Видео](https://t.me/c/2241417709/286/296)"],
+        5: ["1️⃣ Присед со штангой (без штанги) 3x20 [Видео](https://t.me/c/2241417709/140/141)",
             "2️⃣ Махи под 45 с резинкой 3x20 [Видео](https://t.me/c/2241417709/339/340)",
-            "3️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"
-        ],
+            "3️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)"],
     }
     exercises = course.get(day, [])
     text = f"🔥 **Бесплатный курс: День {day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день! 🎥"
@@ -164,7 +191,7 @@ async def handle_send_receipt_anastasiya(update: Update, ctx: ContextTypes.DEFAU
     user_waiting_for_receipt[user_id] = True
     await query.message.reply_text("Пожалуйста, отправьте фото чека об оплате 📸.")
 
-# Обработка фото чека (общая для всех)
+# Обработка фото чека (общая)
 async def handle_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
