@@ -44,21 +44,21 @@ def main_menu():
 def get_report_button_text(ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
     gender = ctx.user_data[user_id].get("gender", "male")
     prog = ctx.user_data[user_id].get("program", "home")
-    return ("👩" if gender == "female" else "👨") + ("🏠" if prog == "home" else "🏋️") + " Отправить отчет"
+    return ("👩" if gender=="female" else "👨") + ("🏠" if prog=="home" else "🏋️") + " Отправить отчет"
 
 # --------------------- БЕСПЛАТНЫЙ КУРС ---------------------
 async def start_free_course(msg, ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
-    if not (ctx.user_data[user_id].get("gender") == "female" and ctx.user_data[user_id].get("program") == "home"):
+    if not (ctx.user_data[user_id].get("gender")=="female" and ctx.user_data[user_id].get("program")=="home"):
         return await msg.reply_text("Пока в разработке", reply_markup=main_menu())
     day = ctx.user_data[user_id].get("current_day", 1)
     if day > 5:
         return await msg.reply_text("Вы завершили курс! 🎉", reply_markup=main_menu())
     photos = {
-        1: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9647.PNG?raw=true",
-        2: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9648.PNG?raw=true",
-        3: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9649.PNG?raw=true",
-        4: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9650.PNG?raw=true",
-        5: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9651.PNG?raw=true",
+        1:"https://github.com/boss198806/telegram-bot/blob/main/IMG_9647.PNG?raw=true",
+        2:"https://github.com/boss198806/telegram-bot/blob/main/IMG_9648.PNG?raw=true",
+        3:"https://github.com/boss198806/telegram-bot/blob/main/IMG_9649.PNG?raw=true",
+        4:"https://github.com/boss198806/telegram-bot/blob/main/IMG_9650.PNG?raw=true",
+        5:"https://github.com/boss198806/telegram-bot/blob/main/IMG_9651.PNG?raw=true",
     }
     course = {
         1: [
@@ -117,7 +117,6 @@ async def handle_send_paid_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE
     user_id = query.from_user.id
     day_str = query.data.split("_")[-1]  # Например, "1"
     paid_day = int(day_str)
-    # Устанавливаем, что ждём видео для платного дня (НЕ перезаписываем, чтобы не сбрасывать значение)
     user_waiting_for_video[user_id] = ("paid", paid_day)
     await query.message.reply_text(
         f"Пожалуйста, отправьте видео-отчет за платный день {paid_day}."
@@ -205,7 +204,7 @@ async def handle_free_course_callback(update: Update, ctx: ContextTypes.DEFAULT_
 async def handle_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    ctx.user_data[user_id]["gender"] = "male" if query.data == "gender_male" else "female"
+    ctx.user_data[user_id]["gender"] = "male" if query.data=="gender_male" else "female"
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
          InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]
@@ -215,7 +214,7 @@ async def handle_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def handle_program(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    ctx.user_data[user_id]["program"] = "home" if query.data == "program_home" else "gym"
+    ctx.user_data[user_id]["program"] = "home" if query.data=="program_home" else "gym"
     ctx.user_data[user_id]["current_day"] = 1
     await start_free_course(query.message, ctx, user_id)
 
@@ -281,11 +280,11 @@ async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT_
         )
     else:
         sel = "неизвестный тренер"
-        if data == "instructor_3":
+        if data=="instructor_3":
             sel = "Тренер 3"
-        elif data == "instructor_4":
+        elif data=="instructor_4":
             sel = "Тренер 4"
-        elif data == "instructor_5":
+        elif data=="instructor_5":
             sel = "Тренер 5"
         await query.message.edit_text(
             f"Вы выбрали тренера: {sel}. Функционал пока не реализован.\nВы будете перенаправлены в главное меню.",
@@ -452,9 +451,13 @@ async def handle_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Чек отправлен на проверку. Ожидайте подтверждения.")
 
 async def confirm_payment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Подтверждаем оплату и выдаем доступ к платному курсу с 1 дня."""
+    """
+    Подтверждаем оплату и выдаем доступ к платному курсу с 1 дня.
+    Если инструктор – Евгений Курочкин, вместо мгновенной отправки программы выводим меню выбора пола;
+    иначе отправляем программу сразу.
+    """
     query = update.callback_query
-    await query.answer()  # Чтобы callback не вызывал ошибок
+    await query.answer()
     user_id = int(query.data.split("_")[-1])
     user_status[user_id] = statuses[2]  # Например, 'Чемпион'
     if user_id in user_waiting_for_receipt:
@@ -463,7 +466,54 @@ async def confirm_payment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         chat_id=user_id,
         text="Оплата подтверждена! Вам открыт доступ к платному курсу. 🎉"
     )
-    # Начинаем платный курс с 1 дня:
+    # Если выбран инструктор Евгений, выводим меню выбора пола; иначе, сразу запускаем курс
+    if ctx.user_data[user_id].get("instructor") == "evgeniy":
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Мужчина", callback_data="paid_gender_male"),
+             InlineKeyboardButton("Женщина", callback_data="paid_gender_female")]
+        ])
+        await ctx.bot.send_message(
+            chat_id=user_id,
+            text="Пожалуйста, выберите ваш пол для платного курса:",
+            reply_markup=kb
+        )
+    else:
+        ctx.user_data[user_id]["paid_current_day"] = 1
+        day1_ex = [
+            "Махи назад с утяжелителями 3х25+5 https://t.me/c/2241417709/337/338",
+            "Выпады 3х30 шагов х 2кг https://t.me/c/2241417709/157/158",
+            "Разведение ног 3х20 https://t.me/c/2241417709/128/129",
+            "Сведение ног 3х20 https://t.me/c/2241417709/126/127",
+            "Сгибание ног 3х15 https://t.me/c/2241417709/130/131",
+        ]
+        txt_day1 = ("📚 **Платный курс: День 1** 📚\n\n" + "\n".join(day1_ex)
+                    + "\n\nОтправьте видео-отчет за день!")
+        kb_day1 = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Отправить отчет", callback_data="paid_video_day_1")]
+        ])
+        await ctx.bot.send_message(
+            chat_id=user_id,
+            text=txt_day1,
+            parse_mode="Markdown",
+            reply_markup=kb_day1
+        )
+
+# --------------------- ОБРАБОТКА ВЫБОРА ПОЛА И ПРОГРАММЫ ДЛЯ ПЛАТНОГО КУРСА (ТОЛЬКО ДЛЯ EVGENIY) ---------------------
+async def handle_paid_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    if query.data == "paid_gender_male":
+        await query.message.reply_text("В разработке")
+    elif query.data == "paid_gender_female":
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("В зале", callback_data="paid_program_gym"),
+             InlineKeyboardButton("Дома", callback_data="paid_program_home")]
+        ])
+        await query.message.reply_text("Выберите программу:", reply_markup=kb)
+
+async def handle_paid_program_gym(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
     ctx.user_data[user_id]["paid_current_day"] = 1
     day1_ex = [
         "Махи назад с утяжелителями 3х25+5 https://t.me/c/2241417709/337/338",
@@ -484,6 +534,9 @@ async def confirm_payment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         reply_markup=kb_day1
     )
 
+async def handle_paid_program_home(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.message.reply_text("В разработке")
+
 # --------------------- Обработчик "paid_video_day_X" ---------------------
 async def handle_send_paid_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """При нажатии на кнопку для платного отчета (например, 'paid_video_day_1')."""
@@ -491,7 +544,406 @@ async def handle_send_paid_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE
     user_id = query.from_user.id
     day_str = query.data.split("_")[-1]
     paid_day = int(day_str)
-    # Здесь не перезаписываем "paid_current_day", чтобы не было двойного увеличения
+    user_waiting_for_video[user_id] = ("paid", paid_day)
+    await query.message.reply_text(
+        f"Пожалуйста, отправьте видео-отчет за платный день {paid_day}."
+    )
+
+# --------------------- Обработчик "paid_next_day" ---------------------
+async def handle_paid_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    paid_day = ctx.user_data[user_id].get("paid_current_day", 1)
+    if paid_day < 5:
+        next_day = paid_day + 1
+        ctx.user_data[user_id]["paid_current_day"] = next_day
+        paid_program = {
+            1: [
+                "Махи назад с утяжелителями 3х25+5 https://t.me/c/2241417709/337/338",
+                "Выпады 3х30 шагов х 2кг https://t.me/c/2241417709/157/158",
+                "Разведение ног 3х20 https://t.me/c/2241417709/128/129",
+                "Сведение ног 3х20 https://t.me/c/2241417709/126/127",
+                "Сгибание ног 3х15 https://t.me/c/2241417709/130/131",
+            ],
+            2: [
+                "Косые скручивания 3х30+10 https://t.me/c/2241417709/284/285",
+                "Отжимания от пола 3х15+5 https://t.me/c/2241417709/167/168",
+                "Лодочка с локтями 3х20+5 https://t.me/c/2241417709/183/184",
+                "Жим гантелей 3х15+5 (вес подбираешь) https://t.me/c/2241417709/175/176",
+                "Гантели в развороте 3х15+5 https://t.me/c/2241417709/222/223",
+                "Разгибание с веревкой 3х1+5 https://t.me/c/2241417709/260/261",
+            ],
+            3: [
+                "Подъёмы ног 3х15+5 https://t.me/c/2241417709/270/271",
+                "Разгибание ног 3х15+5 https://t.me/c/2241417709/134/135",
+                "Выпады назад 3х15 https://t.me/c/2241417709/155/156",
+                "Ягодичный мост 3х20+5 https://t.me/c/2241417709/381/382",
+                "Двойные разведения ног 3х20+5 https://t.me/c/2241417709/123/125",
+                "Мертвая тяга с гантелями 3х15+5 https://t.me/c/2241417709/136/137",
+            ],
+            4: [
+                "Скручивания 3х20+10 https://t.me/c/2241417709/379/380",
+                "Отжимания в ТРХ ремнях 3х15+5 https://t.me/c/2241417709/159/160",
+                "Подтягивания в ТРХ ремнях 3х15 https://t.me/c/2241417709/188/189",
+                "Разводка с гантелями 35 3х15+5 https://t.me/c/2241417709/169/170",
+                "Тяга блока к груди широким хватом 3х12 https://t.me/c/2241417709/210/211",
+                "Жим гантелей сидя 3х12 https://t.me/c/2241417709/115/117",
+                "Скручивания на скамье 3х20 https://t.me/c/2241417709/272/273",
+            ],
+            5: [
+                "Вместо дня 5 оставим пример или финальную программу 🏆",
+            ],
+        }
+        ex = paid_program[next_day]
+        text = f"📚 **Платный курс: День {next_day}** 📚\n\n" + "\n".join(ex) + "\n\nОтправьте видео-отчет за день!"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Отправить отчет", callback_data=f"paid_video_day_{next_day}")]
+        ])
+        await query.message.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+    else:
+        await query.message.reply_text("Поздравляем! Вы завершили платный курс! 🎉", reply_markup=main_menu())
+        ctx.user_data[user_id].pop("paid_current_day", None)
+
+# --------------------- Остальной функционал ---------------------
+async def handle_my_cabinet(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    score = user_scores.get(user_id, 0)
+    status = user_status.get(user_id, statuses[0])
+    text = (
+        f"👤 Ваш кабинет:\n\n"
+        f"Статус: {status}\n"
+        f"Баллы: {score}\n"
+        "Продолжайте тренироваться, чтобы улучшить статус и заработать больше баллов!"
+    )
+    try:
+        await ctx.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true",
+            caption=text,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка для 'Мой кабинет': {e}")
+        await query.message.reply_text("Ошибка при загрузке фото. Попробуйте позже.")
+
+async def handle_about_me(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    text = (
+        "👤 О тренере:\n\n"
+        "Курочкин Евгений Витальевич\n"
+        "Общий тренировочный стаж - 20 лет\n"
+        "Стаж работы - 15 лет\n"
+        "МС - по становой тяге\n"
+        "МС - по жиму штанги лежа\n"
+        "Судья - федеральной категории\n"
+        "Организатор соревнований\n"
+        "КМС - по бодибилдингу\n\n"
+        "20 лет в фитнесе!"
+    )
+    try:
+        await ctx.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true",
+            caption=text,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка для 'Обо мне': {e}")
+        await query.message.reply_text("Ошибка при загрузке фото. Попробуйте позже.")
+
+async def handle_earn_points(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    text = (
+        "💡 Как заработать баллы:\n\n"
+        "1. Проходите бесплатный курс и отправляйте видео-отчеты.\n"
+        "2. Участвуйте в челленджах и отправляйте видео-отчеты.\n"
+        "3. Приглашайте друзей и получайте баллы за их активность.\n"
+        "4. Покупайте платный курс и получаете дополнительные баллы."
+    )
+    try:
+        await ctx.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true",
+            caption=text,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка для 'Как заработать баллы': {e}")
+        await query.message.reply_text("Ошибка при загрузке фото. Попробуйте позже.")
+
+async def handle_spend_points(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    score = user_scores.get(user_id, 0)
+    text = (
+        f"💰 Как потратить баллы:\n\nУ вас есть {score} баллов.\n"
+        "Вы можете потратить баллы на:\n"
+        "- Скидку при покупке платного курса (1 балл = 2 рубля).\n"
+        "- Максимальная скидка - 600 рублей.\n"
+        "- Другие привилегии!"
+    )
+    try:
+        await ctx.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true",
+            caption=text,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка для 'Как потратить баллы': {e}")
+        await query.message.reply_text("Ошибка при загрузке фото. Попробуйте позже.")
+
+async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# --------------------- ОБРАБОТКА ВЫБОРА ПОЛА И ПРОГРАММЫ ДЛЯ ПЛАТНОГО КУРСА (ТОЛЬКО ДЛЯ EVGENIY) ---------------------
+async def handle_paid_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    if query.data == "paid_gender_male":
+        await query.message.reply_text("В разработке")
+    elif query.data == "paid_gender_female":
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("В зале", callback_data="paid_program_gym"),
+             InlineKeyboardButton("Дома", callback_data="paid_program_home")]
+        ])
+        await query.message.reply_text("Выберите программу:", reply_markup=kb)
+
+async def handle_paid_program_gym(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    ctx.user_data[user_id]["paid_current_day"] = 1
+    day1_ex = [
+        "Махи назад с утяжелителями 3х25+5 https://t.me/c/2241417709/337/338",
+        "Выпады 3х30 шагов х 2кг https://t.me/c/2241417709/157/158",
+        "Разведение ног 3х20 https://t.me/c/2241417709/128/129",
+        "Сведение ног 3х20 https://t.me/c/2241417709/126/127",
+        "Сгибание ног 3х15 https://t.me/c/2241417709/130/131",
+    ]
+    txt_day1 = ("📚 **Платный курс: День 1** 📚\n\n" + "\n".join(day1_ex)
+                + "\n\nОтправьте видео-отчет за день!")
+    kb_day1 = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Отправить отчет", callback_data="paid_video_day_1")]
+    ])
+    await ctx.bot.send_message(
+        chat_id=user_id,
+        text=txt_day1,
+        parse_mode="Markdown",
+        reply_markup=kb_day1
+    )
+
+async def handle_paid_program_home(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.message.reply_text("В разработке")
+
+# --------------------- Обработчик "paid_video_day_X" ---------------------
+async def handle_send_paid_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """При нажатии на кнопку для платного отчета (например, 'paid_video_day_1')."""
+    query = update.callback_query
+    user_id = query.from_user.id
+    day_str = query.data.split("_")[-1]
+    paid_day = int(day_str)
+    user_waiting_for_video[user_id] = ("paid", paid_day)
+    await query.message.reply_text(
+        f"Пожалуйста, отправьте видео-отчет за платный день {paid_day}."
+    )
+
+# --------------------- Обработчик "paid_next_day" ---------------------
+async def handle_paid_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    paid_day = ctx.user_data[user_id].get("paid_current_day", 1)
+    if paid_day < 5:
+        next_day = paid_day + 1
+        ctx.user_data[user_id]["paid_current_day"] = next_day
+        paid_program = {
+            1: [
+                "Махи назад с утяжелителями 3х25+5 https://t.me/c/2241417709/337/338",
+                "Выпады 3х30 шагов х 2кг https://t.me/c/2241417709/157/158",
+                "Разведение ног 3х20 https://t.me/c/2241417709/128/129",
+                "Сведение ног 3х20 https://t.me/c/2241417709/126/127",
+                "Сгибание ног 3х15 https://t.me/c/2241417709/130/131",
+            ],
+            2: [
+                "Косые скручивания 3х30+10 https://t.me/c/2241417709/284/285",
+                "Отжимания от пола 3х15+5 https://t.me/c/2241417709/167/168",
+                "Лодочка с локтями 3х20+5 https://t.me/c/2241417709/183/184",
+                "Жим гантелей 3х15+5 (вес подбираешь) https://t.me/c/2241417709/175/176",
+                "Гантели в развороте 3х15+5 https://t.me/c/2241417709/222/223",
+                "Разгибание с веревкой 3х1+5 https://t.me/c/2241417709/260/261",
+            ],
+            3: [
+                "Подъёмы ног 3х15+5 https://t.me/c/2241417709/270/271",
+                "Разгибание ног 3х15+5 https://t.me/c/2241417709/134/135",
+                "Выпады назад 3х15 https://t.me/c/2241417709/155/156",
+                "Ягодичный мост 3х20+5 https://t.me/c/2241417709/381/382",
+                "Двойные разведения ног 3х20+5 https://t.me/c/2241417709/123/125",
+                "Мертвая тяга с гантелями 3х15+5 https://t.me/c/2241417709/136/137",
+            ],
+            4: [
+                "Скручивания 3х20+10 https://t.me/c/2241417709/379/380",
+                "Отжимания в ТРХ ремнях 3х15+5 https://t.me/c/2241417709/159/160",
+                "Подтягивания в ТРХ ремнях 3х15 https://t.me/c/2241417709/188/189",
+                "Разводка с гантелями 35 3х15+5 https://t.me/c/2241417709/169/170",
+                "Тяга блока к груди широким хватом 3х12 https://t.me/c/2241417709/210/211",
+                "Жим гантелей сидя 3х12 https://t.me/c/2241417709/115/117",
+                "Скручивания на скамье 3х20 https://t.me/c/2241417709/272/273",
+            ],
+            5: [
+                "Вместо дня 5 оставим пример или финальную программу 🏆",
+            ],
+        }
+        ex = paid_program[next_day]
+        text = f"📚 **Платный курс: День {next_day}** 📚\n\n" + "\n".join(ex) + "\n\nОтправьте видео-отчет за день!"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Отправить отчет", callback_data=f"paid_video_day_{next_day}")]
+        ])
+        await query.message.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+    else:
+        await query.message.reply_text("Поздравляем! Вы завершили платный курс! 🎉", reply_markup=main_menu())
+        ctx.user_data[user_id].pop("paid_current_day", None)
+
+# --------------------- Остальной функционал ---------------------
+async def handle_my_cabinet(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    score = user_scores.get(user_id, 0)
+    status = user_status.get(user_id, statuses[0])
+    text = (
+        f"👤 Ваш кабинет:\n\n"
+        f"Статус: {status}\n"
+        f"Баллы: {score}\n"
+        "Продолжайте тренироваться, чтобы улучшить статус и заработать больше баллов!"
+    )
+    try:
+        await ctx.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true",
+            caption=text,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка для 'Мой кабинет': {e}")
+        await query.message.reply_text("Ошибка при загрузке фото. Попробуйте позже.")
+
+async def handle_about_me(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    text = (
+        "👤 О тренере:\n\n"
+        "Курочкин Евгений Витальевич\n"
+        "Общий тренировочный стаж - 20 лет\n"
+        "Стаж работы - 15 лет\n"
+        "МС - по становой тяге\n"
+        "МС - по жиму штанги лежа\n"
+        "Судья - федеральной категории\n"
+        "Организатор соревнований\n"
+        "КМС - по бодибилдингу\n\n"
+        "20 лет в фитнесе!"
+    )
+    try:
+        await ctx.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true",
+            caption=text,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка для 'Обо мне': {e}")
+        await query.message.reply_text("Ошибка при загрузке фото. Попробуйте позже.")
+
+async def handle_earn_points(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    text = (
+        "💡 Как заработать баллы:\n\n"
+        "1. Проходите бесплатный курс и отправляйте видео-отчеты.\n"
+        "2. Участвуйте в челленджах и отправляйте видео-отчеты.\n"
+        "3. Приглашайте друзей и получайте баллы за их активность.\n"
+        "4. Покупайте платный курс и получаете дополнительные баллы."
+    )
+    try:
+        await ctx.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true",
+            caption=text,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка для 'Как заработать баллы': {e}")
+        await query.message.reply_text("Ошибка при загрузке фото. Попробуйте позже.")
+
+async def handle_spend_points(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    score = user_scores.get(user_id, 0)
+    text = (
+        f"💰 Как потратить баллы:\n\nУ вас есть {score} баллов.\n"
+        "Вы можете потратить баллы на:\n"
+        "- Скидку при покупке платного курса (1 балл = 2 рубля).\n"
+        "- Максимальная скидка - 600 рублей.\n"
+        "- Другие привилегии!"
+    )
+    try:
+        await ctx.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true",
+            caption=text,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Ошибка для 'Как потратить баллы': {e}")
+        await query.message.reply_text("Ошибка при загрузке фото. Попробуйте позже.")
+
+async def handle_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.message.reply_text("Главное меню", reply_markup=main_menu())
+
+# --------------------- ОБРАБОТКА ВЫБОРА ПОЛА И ПРОГРАММЫ ДЛЯ ПЛАТНОГО КУРСА (ТОЛЬКО ДЛЯ EVGENIY) ---------------------
+async def handle_paid_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    if query.data == "paid_gender_male":
+        await query.message.reply_text("В разработке")
+    elif query.data == "paid_gender_female":
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("В зале", callback_data="paid_program_gym"),
+             InlineKeyboardButton("Дома", callback_data="paid_program_home")]
+        ])
+        await query.message.reply_text("Выберите программу:", reply_markup=kb)
+
+async def handle_paid_program_gym(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    ctx.user_data[user_id]["paid_current_day"] = 1
+    day1_ex = [
+        "Махи назад с утяжелителями 3х25+5 https://t.me/c/2241417709/337/338",
+        "Выпады 3х30 шагов х 2кг https://t.me/c/2241417709/157/158",
+        "Разведение ног 3х20 https://t.me/c/2241417709/128/129",
+        "Сведение ног 3х20 https://t.me/c/2241417709/126/127",
+        "Сгибание ног 3х15 https://t.me/c/2241417709/130/131",
+    ]
+    txt_day1 = ("📚 **Платный курс: День 1** 📚\n\n" + "\n".join(day1_ex)
+                + "\n\nОтправьте видео-отчет за день!")
+    kb_day1 = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Отправить отчет", callback_data="paid_video_day_1")]
+    ])
+    await ctx.bot.send_message(
+        chat_id=user_id,
+        text=txt_day1,
+        parse_mode="Markdown",
+        reply_markup=kb_day1
+    )
+
+async def handle_paid_program_home(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.message.reply_text("В разработке")
+
+# --------------------- Обработчик "paid_video_day_X" ---------------------
+async def handle_send_paid_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """При нажатии на кнопку для платного отчета (например, 'paid_video_day_1')."""
+    query = update.callback_query
+    user_id = query.from_user.id
+    day_str = query.data.split("_")[-1]
+    paid_day = int(day_str)
     user_waiting_for_video[user_id] = ("paid", paid_day)
     await query.message.reply_text(
         f"Пожалуйста, отправьте видео-отчет за платный день {paid_day}."
@@ -663,6 +1115,10 @@ def main():
     app.add_handler(CallbackQueryHandler(confirm_payment, pattern="^confirm_payment_"))
     app.add_handler(CallbackQueryHandler(handle_send_paid_report, pattern=r"^paid_video_day_(\d+)$"))
     app.add_handler(CallbackQueryHandler(handle_paid_next_day, pattern="^paid_next_day$"))
+    # Обработчики для выбора пола и программы для платного курса (только для Евгения)
+    app.add_handler(CallbackQueryHandler(handle_paid_gender, pattern="^paid_gender_"))
+    app.add_handler(CallbackQueryHandler(handle_paid_program_gym, pattern="^paid_program_gym$"))
+    app.add_handler(CallbackQueryHandler(handle_paid_program_home, pattern="^paid_program_home$"))
     app.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="^my_cabinet$"))
     app.add_handler(CallbackQueryHandler(handle_about_me, pattern="^about_me$"))
     app.add_handler(CallbackQueryHandler(handle_earn_points, pattern="^earn_points$"))
@@ -673,7 +1129,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern="^challenge_next$"))
     app.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
 
-    # Видео и фото
+    # Видео и Фото
     app.add_handler(MessageHandler(filters.VIDEO, handle_video))
     app.add_handler(MessageHandler(filters.PHOTO, handle_receipt))
 
