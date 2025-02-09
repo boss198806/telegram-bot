@@ -18,16 +18,15 @@ logger = logging.getLogger(__name__)
 TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"
 GROUP_ID = "-1002451371911"
 
-# Глобальные словари для общих данных
-user_status = {}  # Общий статус пользователя
-user_reports_sent = {}  # Для отслеживания отправленных отчетов (ключ – номер дня)
-user_waiting_for_video = {}  # Ожидание видео (ключ: user_id -> день или кортеж для платного курса)
+# Глобальные словари
+user_status = {}
+user_reports_sent = {}
+user_waiting_for_video = {}
 user_waiting_for_challenge_video = {}
 user_waiting_for_receipt = {}
 user_challenges = {}
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
-# Главное меню (кнопки разделены на два столбца)
 def main_menu():
     buttons = [
         ("🔥 Пройти бесплатный курс", "free_course"),
@@ -58,7 +57,6 @@ def get_report_button_text(ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
 
 # --------------------- БЕСПЛАТНЫЙ КУРС ---------------------
 async def start_free_course(msg, ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
-    # Для тренеров "evgeniy" и "anastasiya" используем отдельные ключи
     instructor = ctx.user_data[user_id].get("instructor")
     if instructor in ["evgeniy", "anastasiya"]:
         free_day_key = f"{instructor}_free_day"
@@ -112,7 +110,6 @@ async def start_free_course(msg, ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
     exercises = course.get(day, [])
     text = f"🔥 **Бесплатный курс: День {day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день! 🎥"
     kb = InlineKeyboardMarkup([[InlineKeyboardButton(get_report_button_text(ctx, user_id), callback_data=f"send_report_day_{day}")]])
-    # Сохраним ID сообщения с кнопкой для последующего удаления кнопки
     sent_msg = await ctx.bot.send_photo(chat_id=msg.chat_id, photo=photos.get(day), caption=text, parse_mode="Markdown", reply_markup=kb)
     ctx.user_data[user_id]["free_msg_id"] = sent_msg.message_id
 
@@ -124,7 +121,6 @@ async def handle_send_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return await query.message.reply_text(f"Вы уже отправили отчет за день {day}.")
     user_waiting_for_video[user_id] = day
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день 🎥")
-    # Удаляем кнопки из исходного сообщения, чтобы повторно не нажимали
     try:
         await ctx.bot.edit_message_reply_markup(chat_id=query.message.chat_id, message_id=query.message.message_id, reply_markup=None)
     except Exception as e:
@@ -137,7 +133,7 @@ async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if user_id not in user_waiting_for_video:
         return await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
     data = user_waiting_for_video[user_id]
-    # Платный курс обрабатывается отдельно (см. ниже)
+    # Если это платный курс – отдельная логика
     if isinstance(data, tuple) and data[0] == "paid":
         paid_day = data[1]
         await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Платный видео-отчет от {user_name} (ID: {user_id}) за день {paid_day}.")
@@ -163,7 +159,7 @@ async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif isinstance(data, int):
         day = data
         if user_reports_sent.get(user_id, {}).get(day):
-            return await update.message.reply_text(f"Отчет уже отправлен. Спасибо! 👍")
+            return await update.message.reply_text("Отчет уже отправлен. Спасибо! 👍")
         await ctx.bot.send_message(chat_id=GROUP_ID, text=f"Видео-отчет от {user_name} (ID: {user_id}) за день {day}.")
         await ctx.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
         user_reports_sent.setdefault(user_id, {})[day] = True
@@ -212,7 +208,7 @@ async def handle_free_course_callback(update: Update, ctx: ContextTypes.DEFAULT_
 async def handle_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    ctx.user_data[user_id]["gender"] = "male" if query.data == "gender_male" else "female"
+    ctx.user_data[user_id]["gender"] = "male" if query.data=="gender_male" else "female"
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
                                   InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]])
     await query.message.reply_text("Выберите программу:", reply_markup=kb)
@@ -220,7 +216,7 @@ async def handle_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def handle_program(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    ctx.user_data[user_id]["program"] = "home" if query.data == "program_home" else "gym"
+    ctx.user_data[user_id]["program"] = "home" if query.data=="program_home" else "gym"
     instructor = ctx.user_data[user_id].get("instructor")
     if instructor in ["evgeniy", "anastasiya"]:
         ctx.user_data[user_id][f"{instructor}_free_day"] = 1
@@ -337,7 +333,6 @@ async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"🔗 Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов! 🎉"
     )
 
-# Челленджи
 async def handle_challenges(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -451,7 +446,6 @@ async def confirm_payment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if user_id in user_waiting_for_receipt:
         del user_waiting_for_receipt[user_id]
     await ctx.bot.send_message(chat_id=user_id, text="✅ Оплата подтверждена! Вам открыт доступ к платному курсу. 🎉")
-    # Если выбран тренер "evgeniy", предлагаем выбор пола для платного курса, иначе сразу запускаем программу
     if ctx.user_data[user_id].get("instructor") == "evgeniy":
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("👨 Мужчина", callback_data="paid_gender_male"),
@@ -567,12 +561,22 @@ async def handle_calc_kbju(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ])
     await query.message.reply_text("Функция «Подсчет КБЖУ» стоит 300 баллов. Хотите купить? 💵", reply_markup=kb)
 
+# Изменённая функция покупки КБЖУ:
 async def handle_buy_kbju(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    if ctx.user_data[user_id].get("global_score", 0) < 300:
-        return await query.message.reply_text("⚠️ Недостаточно баллов для покупки функции «Подсчет КБЖУ».", reply_markup=main_menu())
-    ctx.user_data[user_id]["global_score"] -= 300
+    instructor = ctx.user_data[user_id].get("instructor")
+    if instructor in ["evgeniy", "anastasiya"]:
+        score_key = f"{instructor}_score"
+        current_score = ctx.user_data[user_id].get(score_key, 0)
+        if current_score < 300:
+            return await query.message.reply_text("⚠️ Недостаточно баллов для покупки функции «Подсчет КБЖУ».", reply_markup=main_menu())
+        ctx.user_data[user_id][score_key] = current_score - 300
+    else:
+        current_score = ctx.user_data[user_id].get("global_score", 0)
+        if current_score < 300:
+            return await query.message.reply_text("⚠️ Недостаточно баллов для покупки функции «Подсчет КБЖУ».", reply_markup=main_menu())
+        ctx.user_data[user_id]["global_score"] = current_score - 300
     ctx.user_data[user_id]["kbju"] = {}
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("👨 Мужчина", callback_data="kbju_gender_male"),
@@ -822,12 +826,22 @@ async def handle_calc_kbju(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ])
     await query.message.reply_text("Функция «Подсчет КБЖУ» стоит 300 баллов. Хотите купить? 💵", reply_markup=kb)
 
+# --------------------- Покупка КБЖУ (исправлено) ---------------------
 async def handle_buy_kbju(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    if ctx.user_data[user_id].get("global_score", 0) < 300:
-        return await query.message.reply_text("⚠️ Недостаточно баллов для покупки функции «Подсчет КБЖУ».", reply_markup=main_menu())
-    ctx.user_data[user_id]["global_score"] -= 300
+    instructor = ctx.user_data[user_id].get("instructor")
+    if instructor in ["evgeniy", "anastasiya"]:
+        score_key = f"{instructor}_score"
+        current_score = ctx.user_data[user_id].get(score_key, 0)
+        if current_score < 300:
+            return await query.message.reply_text("⚠️ Недостаточно баллов для покупки функции «Подсчет КБЖУ».", reply_markup=main_menu())
+        ctx.user_data[user_id][score_key] = current_score - 300
+    else:
+        current_score = ctx.user_data[user_id].get("global_score", 0)
+        if current_score < 300:
+            return await query.message.reply_text("⚠️ Недостаточно баллов для покупки функции «Подсчет КБЖУ».", reply_markup=main_menu())
+        ctx.user_data[user_id]["global_score"] = current_score - 300
     ctx.user_data[user_id]["kbju"] = {}
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("👨 Мужчина", callback_data="kbju_gender_male"),
@@ -1076,97 +1090,6 @@ async def handle_calc_kbju(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
          InlineKeyboardButton("🔙 Назад", callback_data="back")]
     ])
     await query.message.reply_text("Функция «Подсчет КБЖУ» стоит 300 баллов. Хотите купить? 💵", reply_markup=kb)
-
-async def handle_buy_kbju(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    if ctx.user_data[user_id].get("global_score", 0) < 300:
-        return await query.message.reply_text("⚠️ Недостаточно баллов для покупки функции «Подсчет КБЖУ».", reply_markup=main_menu())
-    ctx.user_data[user_id]["global_score"] -= 300
-    ctx.user_data[user_id]["kbju"] = {}
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("👨 Мужчина", callback_data="kbju_gender_male"),
-         InlineKeyboardButton("👩 Женщина", callback_data="kbju_gender_female")]
-    ])
-    await query.message.reply_text("Пожалуйста, выберите ваш пол для расчёта КБЖУ:", reply_markup=kb)
-
-async def handle_kbju_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    gender = "male" if query.data == "kbju_gender_male" else "female"
-    ctx.user_data[user_id]["kbju"]["gender"] = gender
-    ctx.user_data[user_id]["awaiting_kbju_age_height"] = True
-    await query.message.reply_text("Введите ваш возраст и рост через запятую (например: 25,175):")
-
-async def handle_kbju_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    if ctx.user_data.get(user_id, {}).get("awaiting_kbju_age_height"):
-        try:
-            parts = update.message.text.split(',')
-            age = int(parts[0].strip())
-            height = int(parts[1].strip())
-            ctx.user_data[user_id]["kbju"]["age"] = age
-            ctx.user_data[user_id]["kbju"]["height"] = height
-            ctx.user_data[user_id].pop("awaiting_kbju_age_height", None)
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📉 Малая", callback_data="kbju_activity_low"),
-                 InlineKeyboardButton("📈 Средняя", callback_data="kbju_activity_medium"),
-                 InlineKeyboardButton("🚀 Высокая", callback_data="kbju_activity_high")]
-            ])
-            await update.message.reply_text("Выберите уровень активности:", reply_markup=kb)
-        except Exception as e:
-            logger.error(f"Ошибка при разборе возраста и роста: {e}")
-            await update.message.reply_text("Неверный формат. Введите данные в формате: 25,175")
-    elif ctx.user_data.get(user_id, {}).get("awaiting_kbju_weight"):
-        try:
-            weight = float(update.message.text.strip())
-            ctx.user_data[user_id]["kbju"]["weight"] = weight
-            ctx.user_data[user_id].pop("awaiting_kbju_weight", None)
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("⚖️ Поддерживать", callback_data="kbju_goal_maintain"),
-                 InlineKeyboardButton("⬇️ Похудеть", callback_data="kbju_goal_lose"),
-                 InlineKeyboardButton("⬆️ Набрать массу", callback_data="kbju_goal_gain")]
-            ])
-            await update.message.reply_text("Выберите вашу цель:", reply_markup=kb)
-        except Exception as e:
-            logger.error(f"Ошибка при вводе веса: {e}")
-            await update.message.reply_text("Неверный формат. Введите число, например: 70")
-    else:
-        pass
-
-async def handle_kbju_activity(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    if query.data == "kbju_activity_low":
-        activity = "low"
-    elif query.data == "kbju_activity_medium":
-        activity = "medium"
-    else:
-        activity = "high"
-    ctx.user_data[user_id]["kbju"]["activity"] = activity
-    ctx.user_data[user_id]["awaiting_kbju_weight"] = True
-    await query.message.reply_text("Введите ваш вес в кг (например: 70):")
-
-async def handle_kbju_goal(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    if query.data == "kbju_goal_maintain":
-        goal = "maintain"
-    elif query.data == "kbju_goal_lose":
-        goal = "lose"
-    else:
-        goal = "gain"
-    ctx.user_data[user_id]["kbju"]["goal"] = goal
-    kbju_data = ctx.user_data[user_id]["kbju"]
-    result = (f"Ваш расчет КБЖУ:\n"
-              f"Калорий: 2200 ккал\n"
-              f"Белков: 150 г\n"
-              f"Жиров: 70 г\n"
-              f"Углеводов: 250 г\n\n"
-              f"(Входные данные: пол: {kbju_data.get('gender')}, возраст: {kbju_data.get('age')}, "
-              f"рост: {kbju_data.get('height')} см, вес: {kbju_data.get('weight')} кг, активность: {kbju_data.get('activity')}, цель: {kbju_data.get('goal')})")
-    await query.message.reply_text(result, reply_markup=main_menu())
-    ctx.user_data[user_id].pop("kbju", None)
 
 # --------------------- Остальной функционал ---------------------
 async def handle_my_cabinet(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
