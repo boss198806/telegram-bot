@@ -1,8 +1,18 @@
 import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    filters,
+    ContextTypes,
+)
 
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
 logger = logging.getLogger(__name__)
 
 TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"
@@ -35,7 +45,6 @@ def get_report_button_text(ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
     gender = ctx.user_data[user_id].get("gender", "male")
     prog = ctx.user_data[user_id].get("program", "home")
     return ("👩" if gender=="female" else "👨") + ("🏠" if prog=="home" else "🏋️") + " Отправить отчет"
-
 # --------------------- БЕСПЛАТНЫЙ КУРС ---------------------
 async def start_free_course(msg, ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
     if not (ctx.user_data[user_id].get("gender")=="female" and ctx.user_data[user_id].get("program")=="home"):
@@ -391,6 +400,32 @@ async def handle_paid_course(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
     user_waiting_for_receipt[user_id] = True
 
+# Новая функция: пользователь нажал кнопку «Отправить чек»
+async def handle_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_name = update.message.from_user.first_name
+    if user_id not in user_waiting_for_receipt:
+        return await update.message.reply_text(
+            "Я не жду чек от вас. Пожалуйста, выберите платный курс и отправьте чек."
+        )
+    if not update.message.photo:
+        return await update.message.reply_text("Пожалуйста, отправьте фото чека.")
+    await ctx.bot.send_message(
+        chat_id=GROUP_ID,
+        text=f"Чек от {user_name} (ID: {user_id}). Подтвердите оплату."
+    )
+    photo_id = update.message.photo[-1].file_id
+    await ctx.bot.send_photo(
+        chat_id=GROUP_ID,
+        photo=photo_id,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Подтвердить", callback_data=f"confirm_payment_{user_id}")]
+        ])
+    )
+    await update.message.reply_text("Чек отправлен на проверку. Ожидайте подтверждения.")
+
+
+
 # ФУНКЦИЯ handle_paid_next_day (требуется для "^paid_next_day$")
 async def handle_paid_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Если пользователь нажал кнопку 'paid_next_day',
@@ -633,6 +668,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_challenges, pattern="^challenge_menu$"))
     app.add_handler(CallbackQueryHandler(buy_challenge, pattern="^buy_challenge$"))
     app.add_handler(CallbackQueryHandler(handle_paid_course, pattern="^paid_course$"))
+    app.add_handler(CallbackQueryHandler(handle_send_receipt, pattern="^send_receipt$"))
     app.add_handler(CallbackQueryHandler(confirm_payment, pattern="^confirm_payment_"))
     app.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="^my_cabinet$"))
     app.add_handler(CallbackQueryHandler(handle_about_me, pattern="^about_me$"))
