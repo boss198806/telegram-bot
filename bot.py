@@ -21,8 +21,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
-GROUP_ID = "YOUR_GROUP_OR_CHANNEL_ID"
+TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"
+GROUP_ID = "-1002451371911"
 
 # ------------------------- Глобальные словари (отдельно для Евгения и Анастасии) -------------------------
 # Евгений
