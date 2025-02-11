@@ -34,11 +34,6 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-    level=logging.INFO
-)
-
-    level=logging.INFO
-)
 logger = logging.getLogger(__name__)
 
 # Загружаем переменные окружения
