@@ -11,6 +11,8 @@ from telegram.ext import (
 )
 from common import user_data, main_menu, logger
 from instructors import *
+from dotenv import load_dotenv
+load_dotenv()  # Загружает переменные окружения из файла .env
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     try:
