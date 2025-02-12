@@ -52,7 +52,7 @@ async def handle_gender(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     ctx.user_data.setdefault(user_id, {})["gender"] = "male" if query.data == "gender_male" else "female"
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
+        [InlineKeyboardButton("🏠 Дома", callback_data="program_home")],
         [InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]
     ])
     await query.message.reply_text("Выберите программу:", reply_markup=kb)
