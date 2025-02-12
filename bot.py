@@ -4,11 +4,10 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from common import main_menu, start_free_course, handle_send_report, handle_video, handle_receipt, confirm_payment
 from common import handle_my_cabinet, handle_about_me, handle_earn_points, handle_spend_points, handle_back
-from common import handle_nutrition_menu, handle_buy_nutrition_menu, handle_referral, handle_challenge_next_day
+from common import handle_nutrition_menu, handle_buy_nutrition_menu, handle_referral, handle_challenges, buy_challenge, send_challenge_task, handle_challenge_next_day
 from evgeniy import handle_instructor_selection, handle_free_course_callback, handle_gender, handle_program
 from evgeniy import handle_paid_course, handle_send_receipt, handle_paid_gender, handle_paid_program_gym, handle_paid_program_home
 from evgeniy import handle_send_paid_report, handle_paid_next_day
-from anastasia import handle_challenges, buy_challenge, send_challenge_task
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
