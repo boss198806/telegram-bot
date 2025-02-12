@@ -1,58 +1,85 @@
 import os
 import logging
 from telegram import Update
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
-from common import main_menu, start_free_course, handle_send_report, handle_video, handle_receipt, confirm_payment
-from common import handle_my_cabinet, handle_about_me, handle_earn_points, handle_spend_points, handle_back
-from common import handle_nutrition_menu, handle_buy_nutrition_menu, handle_referral, handle_challenges, buy_challenge, send_challenge_task, handle_challenge_next_day
-from evgeniy import handle_instructor_selection, handle_free_course_callback, handle_gender, handle_program
-from evgeniy import handle_paid_course, handle_send_receipt, handle_paid_gender, handle_paid_program_gym, handle_paid_program_home
-from evgeniy import handle_send_paid_report, handle_paid_next_day
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    filters,
+    ContextTypes,
 )
-logger = logging.getLogger(__name__)
+from common import user_data, main_menu, logger
+from instructors import *
 
-# Retrieve environment variables
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-GROUP_ID = os.getenv("GROUP_ID")
+async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    try:
+        user_id = update.effective_user.id
+        if ctx.args:
+            try:
+                ref = int(ctx.args[0])
+                if ref != user_id:
+                    # Начисляем баллы рефереру
+                    for instructor in user_data:
+                        if ref in user_data[instructor]['scores']:
+                            user_data[instructor]['scores'][ref] += 100
+                            break
+            except ValueError:
+                pass
+        
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔥 Евгений Курочкин", callback_data="instructor_evgeniy"),
+             InlineKeyboardButton("💫 АНАСТАСИЯ", callback_data="instructor_anastasiya")]
+        ])
+        await ctx.bot.send_message(chat_id=update.effective_chat.id, text="Выберите инструктора:", reply_markup=kb)
+    except Exception as e:
+        logger.error(f"Ошибка в /start: {e}")
 
-if not TOKEN or not GROUP_ID:
-    logger.error("Environment variables TELEGRAM_BOT_TOKEN or GROUP_ID are not set.")
-    raise ValueError("Environment variables TELEGRAM_BOT_TOKEN or GROUP_ID are not set.")
+async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    instructor = ctx.user_data.get(user_id, {}).get('instructor')
+    
+    if not instructor or user_id not in user_data[instructor]['waiting_for_video']:
+        return await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
+    
+    # Обработка видео
+    data = user_data[instructor]['waiting_for_video'][user_id]
+    if isinstance(data, int):  # Бесплатный курс
+        day = data
+        await ctx.bot.send_message(
+            chat_id=os.getenv("TELEGRAM_GROUP_ID"),
+            text=f"Видео-отчет от пользователя {update.message.from_user.first_name} (ID: {user_id}) за день {day}."
+        )
+        await ctx.bot.send_video(chat_id=os.getenv("TELEGRAM_GROUP_ID"), video=update.message.video.file_id)
+        user_data[instructor]['scores'][user_id] = user_data[instructor]['scores'].get(user_id, 0) + 60
+        del user_data[instructor]['waiting_for_video'][user_id]
+        
+        if day < 5:
+            user_data[instructor]['current_day'][user_id] += 1
+            await update.message.reply_text(
+                f"Отчет принят! 🎉\nВаши баллы: {user_data[instructor]['scores'][user_id]}.\nГотовы к следующему дню?",
+                reply_markup=main_menu()
+            )
+        else:
+            user_data[instructor]['status'][user_id] = statuses[1]
+            await update.message.reply_text("Поздравляем! Вы завершили курс! 🎉", reply_markup=main_menu())
 
 def main():
-    app = Application.builder().token(TOKEN).build()
+    app = Application.builder().token(os.getenv("TELEGRAM_TOKEN")).build()
+    
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern="^instructor_"))
-    app.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern="^(free_course|next_day)$"))
+    app.add_handler(CallbackQueryHandler(
+        lambda update, ctx: handle_instructor_selection(update, ctx, 'evgeniy'), 
+        pattern="^instructor_evgeniy$"
+    ))
+    app.add_handler(CallbackQueryHandler(
+        lambda update, ctx: handle_instructor_selection(update, ctx, 'anastasiya'), 
+        pattern="^instructor_anastasiya$"
+    ))
     app.add_handler(CallbackQueryHandler(handle_gender, pattern="^gender_"))
     app.add_handler(CallbackQueryHandler(handle_program, pattern="^program_"))
-    app.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)"))
-    app.add_handler(CallbackQueryHandler(handle_challenges, pattern="^challenge_menu$"))
-    app.add_handler(CallbackQueryHandler(buy_challenge, pattern="^buy_challenge$"))
-    app.add_handler(CallbackQueryHandler(handle_paid_course, pattern="^paid_course$"))
-    app.add_handler(CallbackQueryHandler(handle_send_receipt, pattern="^send_receipt$"))
-    app.add_handler(CallbackQueryHandler(confirm_payment, pattern="^confirm_payment_"))
-    app.add_handler(CallbackQueryHandler(handle_send_paid_report, pattern=r"^paid_video_day_(\d+)$"))
-    app.add_handler(CallbackQueryHandler(handle_paid_next_day, pattern="^paid_next_day$"))
-    app.add_handler(CallbackQueryHandler(handle_paid_gender, pattern="^paid_gender_"))
-    app.add_handler(CallbackQueryHandler(handle_paid_program_gym, pattern="^paid_program_gym$"))
-    app.add_handler(CallbackQueryHandler(handle_paid_program_home, pattern="^paid_program_home$"))
-    app.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="^my_cabinet$"))
-    app.add_handler(CallbackQueryHandler(handle_about_me, pattern="^about_me$"))
-    app.add_handler(CallbackQueryHandler(handle_earn_points, pattern="^earn_points$"))
-    app.add_handler(CallbackQueryHandler(handle_spend_points, pattern="^spend_points$"))
-    app.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="^nutrition_menu$"))
-    app.add_handler(CallbackQueryHandler(handle_buy_nutrition_menu, pattern="^buy_nutrition_menu$"))
-    app.add_handler(CallbackQueryHandler(handle_referral, pattern="^referral$"))
-    app.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern="^challenge_next$"))
-    app.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
     app.add_handler(MessageHandler(filters.VIDEO, handle_video))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_receipt))
-    print("Бот запущен и готов к работе. 🚀")
+    
     app.run_polling()
 
 if __name__ == "__main__":
