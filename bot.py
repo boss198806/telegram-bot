@@ -2,8 +2,8 @@ import os
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-from evgeniy import start_free_course as evgeniy_start_free_course, handle_send_report as evgeniy_handle_send_report
-from anastasia import start_free_course as anastasia_start_free_course, handle_send_report as anastasia_handle_send_report
+from evgeniy import start_free_course as evgeniy_start_free_course
+from anastasia import start_free_course as anastasia_start_free_course
 from common import main_menu
 
 # Загрузка переменных окружения из .env файла
@@ -22,10 +22,7 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data.setdefault(user_id, {"current_day": 1})
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🔥 Евгений Курочкин", callback_data="instructor_1")],
-        [InlineKeyboardButton("💫 Анастасия", callback_data="instructor_2")],
-        [InlineKeyboardButton("🏋️ Тренер 3", callback_data="instructor_3")],
-        [InlineKeyboardButton("🤼 Тренер 4", callback_data="instructor_4")],
-        [InlineKeyboardButton("🤸 Тренер 5", callback_data="instructor_5")],
+        [InlineKeyboardButton("💫 Анастасия", callback_data="instructor_2")]
     ])
     await update.message.reply_text("Привет! Я твой фитнес-ассистент! Выберите тренера:", reply_markup=kb)
 
@@ -40,8 +37,6 @@ async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT_
         ctx.user_data[user_id]["instructor"] = "evgeniy"
     elif query.data == "instructor_2":
         ctx.user_data[user_id]["instructor"] = "anastasia"
-    else:
-        ctx.user_data[user_id]["instructor"] = query.data  # Для других тренеров
 
     # Отправляем меню для выбора курса и других опций
     kb = InlineKeyboardMarkup([
@@ -71,41 +66,18 @@ async def handle_course_selection(update: Update, ctx: ContextTypes.DEFAULT_TYPE
             await evgeniy_start_free_course(query.message, ctx, user_id)
         else:
             await anastasia_start_free_course(query.message, ctx, user_id)
-
     elif choice == "paid_course":
         # Логика для платного курса
         await query.message.reply_text("Вы выбрали платный курс. Ожидайте!")
-    
     elif choice == "challenge_menu":
         # Логика для челленджей
         await query.message.reply_text("Вы выбрали челленджи. Ожидайте!")
-
     elif choice == "nutrition_menu":
         # Логика для меню питания
         await handle_nutrition_menu(update, ctx)
-    
     elif choice == "referral":
         # Логика для реферальной ссылки
         await handle_referral(update, ctx)
-
-# Обработчик меню питания
-async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Обработка кнопки Меню питания."""
-    query = update.callback_query
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🍴 Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="back")]
-    ])
-    await query.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
-
-# Обработчик реферальной ссылки
-async def handle_referral(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Обработка кнопки Реферальная ссылка."""
-    query = update.callback_query
-    user_id = query.from_user.id
-    me = await ctx.bot.get_me()
-    link = f"https://t.me/{me.username}?start={user_id}"
-    await query.message.reply_text(f"🔗 Ваша реферальная ссылка:\n{link}\n\nПоделитесь ею с друзьями, и вы получите 100 баллов! 🎉")
 
 # Главный процесс бота
 def main():
@@ -119,7 +91,3 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="^buy_nutrition_menu$"))  # Покупка меню питания
 
     # Запуск бота на поллинге
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
