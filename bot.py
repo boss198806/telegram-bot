@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from evgeniy import start_free_course as evgeniy_start_free_course, handle_send_report as evgeniy_handle_send_report
 from anastasia import start_free_course as anastasia_start_free_course, handle_send_report as anastasia_handle_send_report
 from common import main_menu
