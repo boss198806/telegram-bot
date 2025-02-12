@@ -1,156 +1,51 @@
-import logging
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, Message
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
+from common import main_menu, get_report_button_text
 
-logger = logging.getLogger(__name__)
+# Функция для начала бесплатного курса для Евгения
+async def start_free_course(msg, ctx: ContextTypes.DEFAULT_TYPE, user_id: int):
+    """Запуск бесплатного курса для тренера Евгения."""
+    if not (ctx.user_data[user_id].get("gender") == "female" and ctx.user_data[user_id].get("program") == "home"):
+        return await msg.reply_text("Пока в разработке 🚧", reply_markup=main_menu())
+    
+    day = ctx.user_data[user_id].get("current_day", 1)
+    if day > 5:
+        return await msg.reply_text("Вы завершили курс! 🎉", reply_markup=main_menu())
+    
+    photos = {
+        1: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9647.PNG?raw=true",
+        2: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9648.PNG?raw=true",
+        3: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9649.PNG?raw=true",
+        4: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9650.PNG?raw=true",
+        5: "https://github.com/boss198806/telegram-bot/blob/main/IMG_9651.PNG?raw=true",
+    }
 
-# Глобальные словари
-evgeniy_user_scores = {}
-evgeniy_user_status = {}
-evgeniy_user_reports_sent = {}
-evgeniy_user_waiting_for_video = {}
-evgeniy_user_challenges = {}
-evgeniy_user_waiting_for_receipt = {}
+    course = {
+        1: ["1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)"],
+        2: ["1️⃣ Отжимания от пола 3x15 [Видео](https://t.me/c/2241417709/167/168)"],
+        3: ["1️⃣ Выпады назад 3x15 [Видео](https://t.me/c/2241417709/155/156)"],
+        4: ["1️⃣ Поочередные подъемы с гантелями 4x20 [Видео](https://t.me/c/2241417709/226/227)"],
+        5: ["1️⃣ Присед со штангой (без штанги) 3x20 [Видео](https://t.me/c/2241417709/140/141)"],
+    }
 
-statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
+    exercises = course.get(day, [])
+    text = f"🔥 **Бесплатный курс: День {day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день! 🎥"
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton(get_report_button_text(ctx, user_id), callback_data=f"send_report_day_{day}")]])
 
-GROUP_ID = os.getenv("GROUP_ID")  # или импортируйте
+    try:
+        await ctx.bot.send_photo(chat_id=msg.chat_id, photo=photos.get(day), caption=text, parse_mode="Markdown", reply_markup=kb)
+    except Exception as e:
+        logger.error(f"Ошибка при отправке фото: {e}")
+        await msg.reply_text("Ошибка: изображение не найдено. Продолжайте без фото.", reply_markup=kb)
 
-######################
-# Вспомогательные
-######################
-def get_score(user_id: int) -> int:
-    return evgeniy_user_scores.get(user_id, 0)
-
-def add_score(user_id: int, amount: int) -> None:
-    evgeniy_user_scores[user_id] = evgeniy_user_scores.get(user_id, 0) + amount
-
-def get_status(user_id: int) -> str:
-    return evgeniy_user_status.get(user_id, statuses[0])
-
-def set_status(user_id: int, new_status: str) -> None:
-    evgeniy_user_status[user_id] = new_status
-
-def evgeniy_main_menu() -> InlineKeyboardMarkup:
-    keyboard = [
-        [InlineKeyboardButton("🔥 Бесплатный курс (ЕВГЕНИЙ)", callback_data="evgeniy_free_course")],
-        [InlineKeyboardButton("💪 Челлендж (ЕВГЕНИЙ)", callback_data="evgeniy_challenge_menu")],
-        [InlineKeyboardButton("📚 Платный курс (ЕВГЕНИЙ)", callback_data="evgeniy_paid_course")],
-        [InlineKeyboardButton("👤 Мой кабинет (ЕВГЕНИЙ)", callback_data="evgeniy_my_cabinet")],
-        [InlineKeyboardButton("💰 Как потратить баллы (ЕВГЕНИЙ)", callback_data="evgeniy_spend_points")],
-        [InlineKeyboardButton("🍽 КБЖУ (ЕВГЕНИЙ)", callback_data="evgeniy_kbju")],
-        [InlineKeyboardButton("🔙 Вернуться к выбору тренера", callback_data="choose_instructor_back")]
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-######################
-# Бесплатный курс
-######################
-async def evgeniy_free_course(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+# Функция для обработки отправки отчета
+async def handle_send_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Обработка отправки отчета пользователем за день в бесплатном курсе."""
     query = update.callback_query
     user_id = query.from_user.id
-    await query.answer()
-
-    # Логика похожа на anastasia_free_course, только используем evgeniy_* словари
-    # ...
-
-async def evgeniy_send_report_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    # Аналогично...
-    ...
-
-async def evgeniy_handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    # Аналогично...
-    ...
-
-######################
-# Челлендж
-######################
-async def evgeniy_challenge_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    # Аналогично...
-    ...
-
-async def evgeniy_buy_challenge(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    # Аналогично...
-    ...
-
-async def evgeniy_challenge_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    # Аналогично...
-    ...
-
-######################
-# Платный курс
-######################
-async def evgeniy_paid_course(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    # Аналогично...
-    ...
-
-async def evgeniy_send_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    # Аналогично...
-    ...
-
-async def evgeniy_handle_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    # Аналогично...
-    ...
-
-async def evgeniy_confirm_payment(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    # Аналогично...
-    ...
-
-async def evgeniy_send_paid_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    # Аналогично...
-    ...
-
-async def evgeniy_paid_next_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    # Аналогично...
-    ...
-
-######################
-# Мой кабинет
-######################
-async def evgeniy_my_cabinet(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    user_id = query.from_user.id
-    await query.answer()
-
-    score = get_score(user_id)
-    status = get_status(user_id)
-    text = f"Ваш кабинет (Евгений)\nСтатус: {status}\nБаллы: {score}"
-    await query.message.reply_text(text, reply_markup=evgeniy_main_menu())
-
-######################
-# Потратить баллы
-######################
-async def evgeniy_spend_points(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    user_id = query.from_user.id
-    await query.answer()
-
-    score = get_score(user_id)
-    text = f"Как потратить баллы (Евгений)? У вас {score} баллов..."
-    await query.message.reply_text(text, reply_markup=evgeniy_main_menu())
-
-######################
-# КБЖУ
-######################
-async def evgeniy_kbju_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    user_id = query.from_user.id
-    await query.answer()
-
-    ctx.user_data[user_id]["evgeniy_kbju_step"] = "gender"
-    await query.message.reply_text("Введите пол (м/ж) [Евгений]:")
-
-async def evgeniy_handle_kbju_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.message.from_user.id
-    if "evgeniy_kbju_step" not in ctx.user_data[user_id]:
-        return
-    # Аналогичная логика
-    ...
-
-######################
-# Назад
-######################
-async def evgeniy_back_to_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    await query.message.reply_text("Меню Евгения", reply_markup=evgeniy_main_menu())
+    day = int(query.data.split("_")[-1])
+    if user_reports_sent.get(user_id, {}).get(day):
+        return await query.message.reply_text(f"Вы уже отправили отчет за день {day}.")
+    
+    user_waiting_for_video[user_id] = day
+    await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день 🎥")
