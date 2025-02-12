@@ -4,6 +4,9 @@ from telegram.ext import ContextTypes
 
 logger = logging.getLogger(__name__)
 
+# Глобальные переменные
+USER_DATA = {}
+
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Команда /start.
@@ -19,7 +22,8 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
                 # здесь можно начислить реферальный бонус рефереру
                 pass
         except ValueError:
-            pass
+            await update.message.reply_text("Ошибка: Неверный реферальный ID.")
+            return
 
     await update.message.reply_text(
         "Выбери для себя фитнес-инструктора:",
@@ -45,7 +49,7 @@ async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT_
 
     data = query.data  # например 'instructor_evgeniy'
     if data == "instructor_evgeniy":
-        ctx.user_data[user_id] = {"instructor": "evgeniy"}
+        USER_DATA[user_id] = {"instructor": "evgeniy"}
         await query.message.reply_text(
             "Вы выбрали: Евгений Курочкин!",
             reply_markup=InlineKeyboardMarkup([
@@ -53,18 +57,25 @@ async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT_
             ])
         )
     elif data == "instructor_anastasia":
-        ctx.user_data[user_id] = {"instructor": "anastasia"}
+        USER_DATA[user_id] = {"instructor": "anastasia"}
         await query.message.reply_text(
             "Вы выбрали: Анастасия!",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("Меню Анастасии", callback_data="anastasia_free_course")]
             ])
         )
-    else:
+    elif data.startswith("instructor_"):
         # Тренеры 3,4,5 - placeholder
-        ctx.user_data[user_id] = {"instructor": data}
+        USER_DATA[user_id] = {"instructor": data}
         await query.message.reply_text(
             "Функционал для этого тренера ещё не реализован.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 Назад", callback_data="choose_instructor_back")]
+            ])
+        )
+    else:
+        await query.message.reply_text(
+            "Ошибка: Неверный выбор тренера.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔙 Назад", callback_data="choose_instructor_back")]
             ])
@@ -77,5 +88,8 @@ async def handle_instructor_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
     await query.message.reply_text(
-        "Вы вернулись к выбору тренера. Нажмите /start или перезапустите бота."
+        "Вы вернулись к выбору тренера. Нажмите /start или перезапустите бота.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Выбрать тренера", callback_data="choose_instructor_back")]
+        ])
     )
