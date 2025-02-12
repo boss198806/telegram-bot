@@ -20,8 +20,8 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GROUP_ID = os.getenv("GROUP_ID")
 
 if not TOKEN or not GROUP_ID:
-    logger.error("Environment variables TOKEN or GROUP_ID are not set.")
-    raise ValueError("Environment variables TOKEN or GROUP_ID are not set.")
+    logger.error("Environment variables TELEGRAM_BOT_TOKEN or GROUP_ID are not set.")
+    raise ValueError("Environment variables TELEGRAM_BOT_TOKEN or GROUP_ID are not set.")
 
 def main():
     app = Application.builder().token(TOKEN).build()
