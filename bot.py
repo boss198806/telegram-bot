@@ -75,7 +75,7 @@ free_course_program = {
     ],
 }
 
-# Программа для платного курса (5 дней) – после подтверждения выдаётся 1-дневная программа
+# Программа для платного курса (5 дней) – после подтверждения выдается 1-дневная программа
 paid_course_program = {
     1: [
         "1️⃣ Жим лежа 3x12 [Видео](https://t.me/c/2241417709/500/501)",
@@ -290,7 +290,7 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     await send_trainer_menu(context, query.message.chat_id, trainer)
 
 # ---------------------------
-# Функции выбора пола и программы
+# Функционал выбора пола и программы
 # ---------------------------
 async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -309,14 +309,16 @@ async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     context.user_data.setdefault(user_id, {})["program"] = "home" if query.data == "program_home" else "gym"
     context.user_data[user_id]["current_day"] = 1
-    await query.message.reply_text("Программа установлена. Бесплатный курс начинается с 1-го дня.", reply_markup=main_menu())
+    # После установки программы сразу выводим бесплатный курс:
+    await start_free_course(query.message, context, user_id)
 
 # ---------------------------
 # Функционал бесплатного курса (5 дней, 60 баллов за день)
 # ---------------------------
 async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+    # Допустим, бесплатный курс доступен только для женщин, выбравших "home"
     if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
-        await message_obj.reply_text("Пока в разработке", reply_markup=main_menu())
+        await message_obj.reply_text("Бесплатный курс пока доступен только для женщин, выбравших программу 'Дома'.", reply_markup=main_menu())
         return
     current_day = context.user_data[user_id].get("current_day", 1)
     if current_day > 5:
@@ -325,7 +327,7 @@ async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, use
     program = free_course_program.get(current_day, [])
     caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n" + "\n".join(program) + "\n\nОтправьте видео-отчет за день!"
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"Отправить отчет", callback_data=f"send_report_day_{current_day}")]
+        [InlineKeyboardButton("Отправить отчет", callback_data=f"send_report_day_{current_day}")]
     ])
     try:
         await context.bot.send_photo(
@@ -378,7 +380,7 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     if user_id not in user_paid_course_progress:
         user_paid_course_progress[user_id] = {}
-    user_paid_course_progress[user_id][trainer] = 0
+    user_paid_course_progress[user_id][trainer] = 0  # курс не куплен
     discount = min(user_scores.get(user_id, 0) * 2, 400)
     final_price = 2000 - discount
     text = (f"📚 **Платный курс** 📚\nСтоимость: 2000 руб.\nВаша скидка: {discount} руб.\nИтог: {final_price} руб.\n\n"
@@ -427,9 +429,12 @@ async def handle_confirm_payment(update: Update, context: ContextTypes.DEFAULT_T
             del user_waiting_for_receipt[user_id]
         if user_id in user_paid_course_progress:
             user_paid_course_progress[user_id][trainer] = 1
-        await query.message.reply_text("Оплата подтверждена!")
+        # Отправляем пользователю программу платного курса на 1 день
         program = paid_course_program.get(1, [])
-        caption = "📚 **Платный курс (1 день):**\n\n" + "\n".join(program)
+        caption = ("📚 **Платный курс (1 день):**\n\n" +
+                   "\n".join(program) +
+                   "\n\nПосле выполнения видео-отчетов вам будут начисляться баллы.")
+        await query.message.reply_text("Оплата подтверждена!")
         await context.bot.send_message(chat_id=user_id, text=caption, reply_markup=main_menu())
     else:
         await query.message.reply_text("Ошибка подтверждения оплаты.")
@@ -478,7 +483,7 @@ async def handle_complete_challenge(update: Update, context: ContextTypes.DEFAUL
     await query.message.reply_text(response_text, reply_markup=main_menu())
 
 # ---------------------------
-# Функция обработки входящих видео (бесплатный и платный курсы)
+# Функция обработки входящих видео (для бесплатного и платного курсов)
 # ---------------------------
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -551,7 +556,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Я не жду видео от вас.")
 
 # ---------------------------
-# Функционал рефералов, личного кабинета, информации и т.д.
+# Функционал рефералов, личного кабинета, меню питания и прочее
 # ---------------------------
 async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
