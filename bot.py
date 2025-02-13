@@ -6,6 +6,7 @@ from telegram.ext import (
     CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
+    ConversationHandler,
     filters,
     ContextTypes,
 )
@@ -16,41 +17,9 @@ load_dotenv()
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROUP_ID = os.environ.get("GROUP_ID")
 
-# Пример простого определения функции start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    # Инициализация данных пользователя
-    context.user_data.setdefault(user_id, {"current_day": 1})
-    await update.message.reply_text("Привет! Добро пожаловать в фитнес-бот. Выберите инструктора.", reply_markup=InlineKeyboardMarkup([
-        [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_evgeniy")],
-        [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_anastasiya")]
-    ]))
-
-async def handle_instructor_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    # Получаем выбранного тренера, ожидаем, что callback_data имеет формат "instructor_<имя>"
-    trainer = query.data.split("_", 1)[-1]
-    user_id = query.from_user.id
-    # Сохраняем выбранного тренера для пользователя
-    context.user_data.setdefault(user_id, {})["instructor"] = trainer
-    await query.message.edit_text(f"Вы выбрали тренера: {trainer.title()}")
-    # Отправляем меню тренера (функция send_trainer_menu должна быть определена)
-    await send_trainer_menu(context, query.message.chat_id, trainer)
-    
-async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()  # обязательно отвечаем на callback-запрос
-    user_id = query.from_user.id
-    # Устанавливаем пол пользователя на основе callback_data ("gender_male" или "gender_female")
-    context.user_data.setdefault(user_id, {})["gender"] = "male" if query.data == "gender_male" else "female"
-    # После выбора пола переходим к выбору программы (например, дома или в зале)
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
-         InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]
-    ])
-    await query.message.reply_text("Выберите программу:", reply_markup=keyboard)
-# Глобальные словари
+# ---------------------------
+# Глобальные словари и константы
+# ---------------------------
 user_scores = {}                # общий счёт пользователя
 user_status = {}                # статус пользователя
 user_reports_sent = {}          # для бесплатного курса: user_id -> {day: bool}
@@ -77,7 +46,7 @@ trainer_scores = {
 
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
-# Программы для бесплатного курса (5 дней)
+# Программы курсов (5 дней)
 free_course_program = {
     1: [
         "1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)",
@@ -106,7 +75,6 @@ free_course_program = {
     ],
 }
 
-# Программа для платного курса (5 дней) – после подтверждения выдаётся 1-дневная программа
 paid_course_program = {
     1: [
         "1️⃣ Жим лежа 3x12 [Видео](https://t.me/c/2241417709/500/501)",
@@ -134,7 +102,6 @@ paid_course_program = {
     ],
 }
 
-# Программа для челленджей (5 дней, без видеоотчетов)
 challenge_program = {
     1: [
         "1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
@@ -162,38 +129,25 @@ challenge_program = {
     ],
 }
 
-# -------------------------------------------------------------------
+# ---------------------------
 # Константы для опроса КБЖУ
-# -------------------------------------------------------------------
+# ---------------------------
 KBJU_SEX, KBJU_AGE, KBJU_HEIGHT, KBJU_ACTIVITY, KBJU_GOAL = range(5)
 
-# -------------------------------------------------------------------
-# Вспомогательные функции для КБЖУ
-# -------------------------------------------------------------------
-
-def kbju_main_menu():
-    # Добавляем кнопку КБЖУ в основное меню
-    base = main_menu().to_dict()["inline_keyboard"]
-    base.append([{"text": "🥗 КБЖУ", "callback_data": "kbju"}])
-    return InlineKeyboardMarkup(base)
-
-# -------------------------------------------------------------------
-# Функции для опроса КБЖУ (КБЖУ = калории, белки, жиры, углеводы)
-# -------------------------------------------------------------------
-
+# ---------------------------
+# Функции для опроса КБЖУ
+# ---------------------------
 async def kbju_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
     trainer = context.user_data[user_id].get("instructor")
-    # Проверяем, достаточно ли баллов у выбранного тренера для покупки КБЖУ (300 баллов)
     current_trainer_points = trainer_scores.get(trainer, {}).get(user_id, 0)
     if current_trainer_points < 300:
-        await query.message.reply_text("Недостаточно баллов для покупки КБЖУ (требуется 300 баллов).", reply_markup=main_menu())
+        await query.message.reply_text("Недостаточно баллов для покупки КБЖУ (требуется 300).", reply_markup=main_menu())
         return ConversationHandler.END
-    # Списываем 300 баллов с баланса тренера
     trainer_scores[trainer][user_id] = current_trainer_points - 300
-    await query.message.reply_text("Для расчета КБЖУ ответьте на несколько вопросов.\n\nУкажите, пожалуйста, ваш пол:", reply_markup=InlineKeyboardMarkup([
+    await query.message.reply_text("Для расчета КБЖУ ответьте на несколько вопросов.\n\nУкажите ваш пол:", reply_markup=InlineKeyboardMarkup([
         [InlineKeyboardButton("Мужской", callback_data="kbju_sex_male"),
          InlineKeyboardButton("Женский", callback_data="kbju_sex_female")]
     ]))
@@ -212,7 +166,7 @@ async def kbju_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
         age = int(update.message.text)
         context.user_data["kbju"]["age"] = age
     except ValueError:
-        await update.message.reply_text("Пожалуйста, введите число (ваш возраст).")
+        await update.message.reply_text("Введите число (ваш возраст).")
         return KBJU_AGE
     await update.message.reply_text("Какой ваш рост (в см)?")
     return KBJU_HEIGHT
@@ -222,9 +176,9 @@ async def kbju_height(update: Update, context: ContextTypes.DEFAULT_TYPE):
         height = int(update.message.text)
         context.user_data["kbju"]["height"] = height
     except ValueError:
-        await update.message.reply_text("Пожалуйста, введите число (ваш рост в см).")
+        await update.message.reply_text("Введите число (ваш рост в см).")
         return KBJU_HEIGHT
-    await update.message.reply_text("Выберите уровень физической активности:", reply_markup=InlineKeyboardMarkup([
+    await update.message.reply_text("Выберите уровень активности:", reply_markup=InlineKeyboardMarkup([
         [InlineKeyboardButton("Низкая", callback_data="kbju_activity_low"),
          InlineKeyboardButton("Средняя", callback_data="kbju_activity_medium"),
          InlineKeyboardButton("Высокая", callback_data="kbju_activity_high")]
@@ -235,7 +189,7 @@ async def kbju_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     activity = query.data.split("_")[-1]
-    context.user_data["kbju"]["activity"] = activity  # low, medium, high
+    context.user_data["kbju"]["activity"] = activity
     await query.message.reply_text("Какова ваша цель?", reply_markup=InlineKeyboardMarkup([
         [InlineKeyboardButton("Снижение веса", callback_data="kbju_goal_loss"),
          InlineKeyboardButton("Набор массы", callback_data="kbju_goal_gain"),
@@ -247,27 +201,15 @@ async def kbju_goal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     goal = query.data.split("_")[-1]
-    context.user_data["kbju"]["goal"] = goal  # loss, gain, maintain
-
-    # Рассчитываем рекомендованные калории по простой формуле
-    # Для оценки веса используем: для мужчин вес = рост - 100, для женщин = рост - 110
+    context.user_data["kbju"]["goal"] = goal
     sex = context.user_data["kbju"]["sex"]
     age = context.user_data["kbju"]["age"]
     height = context.user_data["kbju"]["height"]
     weight = height - 100 if sex == "male" else height - 110
-    # Рассчитываем базальный уровень метаболизма (BMR) по формуле Mifflin-St Jeor (упрощенно)
     bmr = 10 * weight + 6.25 * height - 5 * age + (5 if sex == "male" else -161)
-    # Фактор активности
     activity = context.user_data["kbju"]["activity"]
-    if activity == "low":
-        factor = 1.2
-    elif activity == "medium":
-        factor = 1.55
-    else:
-        factor = 1.9
+    factor = 1.2 if activity == "low" else 1.55 if activity == "medium" else 1.9
     calories = bmr * factor
-    # Корректировка в зависимости от цели
-    goal = context.user_data["kbju"]["goal"]
     if goal == "loss":
         calories *= 0.8
     elif goal == "gain":
@@ -282,53 +224,96 @@ async def kbju_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Опрос КБЖУ отменен.", reply_markup=main_menu())
     return ConversationHandler.END
 
-# -------------------------------------------------------------------
-# Обработка входящих видео (для бесплатного и платного курсов)
-# -------------------------------------------------------------------
+# ---------------------------
+# Основное меню (с кнопками)
+# ---------------------------
+def main_menu():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔥 Пройти бесплатный курс", callback_data="free_course")],
+        [InlineKeyboardButton("💪 Челленджи", callback_data="challenge_menu")],
+        [InlineKeyboardButton("📚 Платный курс", callback_data="paid_course")],
+        [InlineKeyboardButton("🍽 Меню питания", callback_data="nutrition_menu")],
+        [InlineKeyboardButton("👤 Мой кабинет", callback_data="my_cabinet")],
+        [InlineKeyboardButton("💡 Как заработать баллы", callback_data="earn_points")],
+        [InlineKeyboardButton("💰 Как потратить баллы", callback_data="spend_points")],
+        [InlineKeyboardButton("ℹ️ Обо мне", callback_data="about_me")],
+        [InlineKeyboardButton("🔗 Реферальная ссылка", callback_data="referral")],
+        [InlineKeyboardButton("🥗 КБЖУ", callback_data="kbju")]
+    ])
 
-async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    user_name = update.message.from_user.first_name
-
-    # Бесплатный курс
-    if user_id in user_waiting_for_video:
-        current_day = user_waiting_for_video[user_id]
-        await context.bot.send_message(
-            chat_id=GROUP_ID,
-            text=f"Бесплатный курс. Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
-        )
-        await context.bot.send_video(
-            chat_id=GROUP_ID,
-            video=update.message.video.file_id
-        )
-        user_reports_sent.setdefault(user_id, {})[current_day] = True
-        user_scores[user_id] += 60
-        trainer = context.user_data[user_id].get("instructor", "evgeniy")
-        trainer_scores[trainer][user_id] = trainer_scores[trainer].get(user_id, 0) + 60
-        del user_waiting_for_video[user_id]
-        if current_day < 5:
-            context.user_data[user_id]["current_day"] += 1
-            new_day = context.user_data[user_id]["current_day"]
-            user_waiting_for_video[user_id] = new_day
-            await update.message.reply_text(
-                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton(f"➡️ День {new_day}", callback_data="next_day")]
-                ])
-            )
+# ---------------------------
+# Функция отправки меню тренера
+# ---------------------------
+async def send_trainer_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int, trainer: str):
+    caption = f"Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: {trainer.title()}"
+    trainer_media = {
+        "evgeniy": {"type": "video", "url": "https://github.com/boss198806/telegram-bot/raw/refs/heads/main/IMG_1484.MOV"},
+        "anastasia": {"type": "photo", "url": "https://github.com/boss198806/telegram-bot/blob/main/photo_2025-02-08_22-08-36.jpg?raw=true"},
+        "trainer3": {"type": "photo", "url": "https://via.placeholder.com/300.png?text=Trainer+3"},
+        "trainer4": {"type": "photo", "url": "https://via.placeholder.com/300.png?text=Trainer+4"},
+        "trainer5": {"type": "photo", "url": "https://via.placeholder.com/300.png?text=Trainer+5"},
+    }
+    media = trainer_media.get(trainer)
+    if media:
+        if media["type"] == "video":
+            await context.bot.send_video(chat_id=chat_id, video=media["url"], supports_streaming=True, caption=caption, reply_markup=main_menu())
         else:
-            user_status[user_id] = statuses[1]
-            await update.message.reply_text(
-                f"Поздравляем! Вы завершили бесплатный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
-                reply_markup=main_menu()
-            )
+            await context.bot.send_photo(chat_id=chat_id, photo=media["url"], caption=caption, reply_markup=main_menu())
+    else:
+        await context.bot.send_message(chat_id=chat_id, text=caption, reply_markup=main_menu())
+
+# ---------------------------
+# Команда /start и выбор инструктора
+# ---------------------------
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    context.user_data.setdefault(user_id, {"current_day": 1})
+    await update.message.reply_text("Привет! Добро пожаловать в фитнес-бот. Выберите инструктора.", reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_evgeniy")],
+        [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_anastasia")]
+    ]))
+
+async def handle_instructor_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    trainer = query.data.split("_", 1)[-1]
+    user_id = query.from_user.id
+    context.user_data.setdefault(user_id, {})["current_day"] = 1  # сбрасываем бесплатный курс
+    context.user_data[user_id]["instructor"] = trainer
+    user_reports_sent[user_id] = {}  # очищаем историю отчетов
+    await query.message.edit_text(f"Вы выбрали тренера: {trainer.title()}")
+    await send_trainer_menu(context, query.message.chat_id, trainer)
+
+# ---------------------------
+# Функционал бесплатного курса (5 дней, 60 баллов за день)
+# ---------------------------
+async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+    if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
+        await message_obj.reply_text("Пока в разработке", reply_markup=main_menu())
         return
-        
+    current_day = context.user_data[user_id].get("current_day", 1)
+    if current_day > 5:
+        await message_obj.reply_text("Вы завершили бесплатный курс! 🎉", reply_markup=main_menu())
+        return
+    program = free_course_program.get(current_day, [])
+    caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n" + "\n".join(program) + "\n\nОтправьте видео-отчет за день!"
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(get_report_button_text(context, user_id), callback_data=f"send_report_day_{current_day}")]
+    ])
+    try:
+        await context.bot.send_photo(chat_id=message_obj.chat_id,
+                                     photo=f"https://github.com/boss198806/telegram-bot/blob/main/IMG_96{46+current_day}.PNG?raw=true",
+                                     caption=caption,
+                                     parse_mode="Markdown",
+                                     reply_markup=keyboard)
+    except Exception as e:
+        logging.error(f"Ошибка при отправке фото бесплатного курса: {e}")
+        await message_obj.reply_text("Ошибка: изображение не найдено. Продолжайте без фото.", reply_markup=keyboard)
+
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()  # Обязательно отвечаем на callback, чтобы Telegram не выдавал ошибку
+    await query.answer()
     user_id = query.from_user.id
-    # Если данные о поле или программе отсутствуют, запрашиваем их:
     if "gender" not in context.user_data.get(user_id, {}) or "program" not in context.user_data.get(user_id, {}):
         gender_keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Мужчина", callback_data="gender_male"),
@@ -336,128 +321,24 @@ async def handle_free_course_callback(update: Update, context: ContextTypes.DEFA
         ])
         await query.message.reply_text("Пожалуйста, выберите ваш пол:", reply_markup=gender_keyboard)
         return
-    # Если данные уже есть, запускаем бесплатный курс:
     await start_free_course(query.message, context, user_id)
 
-    # Платный курс
-    if user_id in user_waiting_for_paid_video:
-        current_day = user_waiting_for_paid_video[user_id]
-        await context.bot.send_message(
-            chat_id=GROUP_ID,
-            text=f"Платный курс. Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
-        )
-        await context.bot.send_video(
-            chat_id=GROUP_ID,
-            video=update.message.video.file_id
-        )
-        user_scores[user_id] += 30
-        del user_waiting_for_paid_video[user_id]
-        trainer = context.user_data[user_id].get("instructor", "evgeniy")
-        if user_id in user_paid_course_progress and trainer in user_paid_course_progress[user_id]:
-            user_paid_course_progress[user_id][trainer] = current_day + 1
-        if current_day < 5:
-            await update.message.reply_text(
-                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton(f"➡️ День {current_day + 1}", callback_data="next_paid_day")]
-                ])
-            )
-        else:
-            await update.message.reply_text(
-                f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
-                reply_markup=main_menu()
-            )
+async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    try:
+        current_day = int(query.data.split("_")[-1])
+    except Exception:
+        current_day = 1
+    if user_reports_sent.get(user_id, {}).get(current_day):
+        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day}.")
         return
+    user_waiting_for_video[user_id] = current_day
+    await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день.")
 
-    await update.message.reply_text("Я не жду видео от вас.")
-
-# -------------------------------------------------------------------
-# Прочий функционал: Меню питания, Рефералы, Личный кабинет и пр.
-# -------------------------------------------------------------------
-
-async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    # Здесь списываем баллы с баланса выбранного тренера
-    user_id = query.from_user.id
-    trainer = context.user_data[user_id].get("instructor")
-    trainer_points = trainer_scores.get(trainer, {}).get(user_id, 0)
-    text = f"Меню питания доступно для покупки.\nВаш баланс у тренера {trainer.title()}: {trainer_points} баллов.\n" \
-           f"Стоимость: 300 баллов."
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Купить меню питания", callback_data="buy_nutrition")],
-        [InlineKeyboardButton("Назад", callback_data="back")]
-    ])
-    await query.message.reply_text(text, reply_markup=keyboard)
-
-async def handle_buy_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    trainer = context.user_data[user_id].get("instructor")
-    current = trainer_scores.get(trainer, {}).get(user_id, 0)
-    if current >= 300:
-        trainer_scores[trainer][user_id] = current - 300
-        await query.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
-    else:
-        await query.message.reply_text("Недостаточно баллов для покупки меню питания!")
-
-async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    me = await context.bot.get_me()
-    referral_link = f"https://t.me/{me.username}?start={user_id}"
-    await query.message.reply_text(f"Ваша реферальная ссылка:\n{referral_link}\n\nПоделитесь ею, чтобы получить бонус!", reply_markup=main_menu())
-
-async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    score = user_scores.get(user_id, 0)
-    status = user_status.get(user_id, statuses[0])
-    caption = f"👤 Ваш кабинет:\n\nСтатус: {status}\nБаллы: {score}\nПродолжайте тренироваться!"
-    try:
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true", caption=caption, parse_mode="Markdown")
-    except Exception as e:
-        logging.error(f"Ошибка при отправке фото для 'Мой кабинет': {e}")
-        await query.message.reply_text("Произошла ошибка. Попробуйте позже.")
-
-async def handle_about_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    caption = ("👤 О тренере:\n\nКурочкин Евгений Витальевич\nТренировочный стаж: 20 лет\n"
-               "Стаж работы: 15 лет\nМС по становой тяге и жиму\nСудья федеральной категории\n20 лет в фитнесе!")
-    try:
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true", caption=caption, parse_mode="Markdown")
-    except Exception as e:
-        logging.error(f"Ошибка при отправке фото для 'Обо мне': {e}")
-        await query.message.reply_text("Произошла ошибка. Попробуйте позже.")
-
-async def handle_earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    caption = ("💡 Как заработать баллы:\n1. Бесплатный курс\n2. Челленджи\n3. Реферальная система\n4. Платный курс")
-    try:
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true", caption=caption, parse_mode="Markdown")
-    except Exception as e:
-        logging.error(f"Ошибка при отправке фото для 'Как заработать баллы': {e}")
-        await query.message.reply_text("Произошла ошибка. Попробуйте позже.")
-
-async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    score = user_scores.get(user_id, 0)
-    caption = (f"💰 Как потратить баллы:\nУ вас {score} баллов.\nМожно получить скидки на курсы и товары.")
-    try:
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true", caption=caption, parse_mode="Markdown")
-    except Exception as e:
-        logging.error(f"Ошибка при отправке фото для 'Как потратить баллы': {e}")
-        await query.message.reply_text("Произошла ошибка. Попробуйте позже.")
-
-async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.message.reply_text("Главное меню", reply_markup=main_menu())
-
-# -------------------------------------------------------------------
+# ---------------------------
 # Функционал платного курса: покупка (отдельно для каждого тренера)
-# -------------------------------------------------------------------
-
+# ---------------------------
 async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -468,8 +349,8 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     if user_id not in user_paid_course_progress:
         user_paid_course_progress[user_id] = {}
-    user_paid_course_progress[user_id][trainer] = 0  # 0 означает, что курс ещё не куплен
-    discount = min(user_scores.get(user_id, 0) * 2, 400)  # максимум 400 руб (20%)
+    user_paid_course_progress[user_id][trainer] = 0  # курс не куплен
+    discount = min(user_scores.get(user_id, 0) * 2, 400)
     final_price = 2000 - discount
     text = (f"📚 **Платный курс** 📚\nСтоимость: 2000 руб.\nВаша скидка: {discount} руб.\nИтог: {final_price} руб.\n\n"
             "Переведите сумму на карту: 89236950304 (ЯНДЕКС БАНК).\nПосле оплаты нажмите кнопку и отправьте фото чека.")
@@ -530,10 +411,9 @@ async def handle_next_paid_day(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = query.from_user.id
     await handle_paid_course(update, context)
 
-# -------------------------------------------------------------------
+# ---------------------------
 # Функционал челленджей (5 дней, без видео, 60 баллов за день)
-# -------------------------------------------------------------------
-
+# ---------------------------
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -568,24 +448,20 @@ async def handle_complete_challenge(update: Update, context: ContextTypes.DEFAUL
         del user_challenge_progress[user_id]
     await query.message.reply_text(response_text, reply_markup=main_menu())
 
-# -------------------------------------------------------------------
-# Функционал КБЖУ (опрос с расчетом, стоимость 300 баллов)
-# -------------------------------------------------------------------
-# Константы для состояний опроса КБЖУ:
-KBJU_SEX, KBJU_AGE, KBJU_HEIGHT, KBJU_ACTIVITY, KBJU_GOAL = range(5)
-
+# ---------------------------
+# Функционал КБЖУ (опрос, стоимость 300 баллов)
+# ---------------------------
 async def kbju_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
     trainer = context.user_data[user_id].get("instructor")
-    current = trainer_scores.get(trainer, {}).get(user_id, 0)
-    if current < 300:
+    current_trainer_points = trainer_scores.get(trainer, {}).get(user_id, 0)
+    if current_trainer_points < 300:
         await query.message.reply_text("Недостаточно баллов для покупки КБЖУ (требуется 300).", reply_markup=main_menu())
         return ConversationHandler.END
-    # Списываем 300 баллов с баланса выбранного тренера
-    trainer_scores[trainer][user_id] = current - 300
-    await query.message.reply_text("Для расчета КБЖУ ответьте на несколько вопросов.\n\nУкажите, пожалуйста, ваш пол:", reply_markup=InlineKeyboardMarkup([
+    trainer_scores[trainer][user_id] = current_trainer_points - 300
+    await query.message.reply_text("Для расчета КБЖУ ответьте на несколько вопросов.\n\nУкажите ваш пол:", reply_markup=InlineKeyboardMarkup([
         [InlineKeyboardButton("Мужской", callback_data="kbju_sex_male"),
          InlineKeyboardButton("Женский", callback_data="kbju_sex_female")]
     ]))
@@ -626,7 +502,7 @@ async def kbju_height(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def kbju_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    activity = query.data.split("_")[-1]  # low, medium, high
+    activity = query.data.split("_")[-1]
     context.user_data["kbju"]["activity"] = activity
     await query.message.reply_text("Какова ваша цель?", reply_markup=InlineKeyboardMarkup([
         [InlineKeyboardButton("Снижение веса", callback_data="kbju_goal_loss"),
@@ -638,25 +514,16 @@ async def kbju_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def kbju_goal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    goal = query.data.split("_")[-1]  # loss, gain, maintain
+    goal = query.data.split("_")[-1]
     context.user_data["kbju"]["goal"] = goal
-    # Расчет КБЖУ по простой формуле:
     sex = context.user_data["kbju"]["sex"]
     age = context.user_data["kbju"]["age"]
     height = context.user_data["kbju"]["height"]
-    # Примерная оценка веса: для мужчин – (рост - 100), для женщин – (рост - 110)
     weight = height - 100 if sex == "male" else height - 110
-    # Рассчитываем BMR по формуле Mifflin-St Jeor (упрощённо)
     bmr = 10 * weight + 6.25 * height - 5 * age + (5 if sex == "male" else -161)
     activity = context.user_data["kbju"]["activity"]
-    if activity == "low":
-        factor = 1.2
-    elif activity == "medium":
-        factor = 1.55
-    else:
-        factor = 1.9
+    factor = 1.2 if activity == "low" else 1.55 if activity == "medium" else 1.9
     calories = bmr * factor
-    # Корректировка по цели
     if goal == "loss":
         calories *= 0.8
     elif goal == "gain":
@@ -671,9 +538,9 @@ async def kbju_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Опрос КБЖУ отменен.", reply_markup=main_menu())
     return ConversationHandler.END
 
-# -------------------------------------------------------------------
-# Основное меню (добавлена кнопка КБЖУ)
-# -------------------------------------------------------------------
+# ---------------------------
+# Основное меню (с кнопками)
+# ---------------------------
 def main_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔥 Пройти бесплатный курс", callback_data="free_course")],
@@ -688,9 +555,9 @@ def main_menu():
         [InlineKeyboardButton("🥗 КБЖУ", callback_data="kbju")]
     ])
 
-# -------------------------------------------------------------------
+# ---------------------------
 # Обработка входящих фото (чек для платного курса)
-# -------------------------------------------------------------------
+# ---------------------------
 async def handle_receipt_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id in user_waiting_for_receipt:
@@ -712,9 +579,9 @@ async def handle_receipt_photo(update: Update, context: ContextTypes.DEFAULT_TYP
     else:
         await update.message.reply_text("Фото получено.")
 
-# -------------------------------------------------------------------
-# Прочий функционал: меню питания, рефералы, личный кабинет, информация
-# -------------------------------------------------------------------
+# ---------------------------
+# Прочий функционал
+# ---------------------------
 async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -729,7 +596,10 @@ async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status = user_status.get(user_id, statuses[0])
     caption = f"👤 Ваш кабинет:\n\nСтатус: {status}\nБаллы: {score}\nПродолжайте тренироваться!"
     try:
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true", caption=caption, parse_mode="Markdown")
+        await context.bot.send_photo(chat_id=update.effective_chat.id,
+                                       photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true",
+                                       caption=caption,
+                                       parse_mode="Markdown")
     except Exception as e:
         logging.error(f"Ошибка при отправке фото для 'Мой кабинет': {e}")
         await query.message.reply_text("Произошла ошибка. Попробуйте позже.")
@@ -739,7 +609,10 @@ async def handle_about_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     caption = ("👤 О тренере:\n\nКурочкин Евгений Витальевич\nТренировочный стаж: 20 лет\n"
                "Стаж работы: 15 лет\nМС по становой тяге и жиму\nСудья федеральной категории\n20 лет в фитнесе!")
     try:
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true", caption=caption, parse_mode="Markdown")
+        await context.bot.send_photo(chat_id=update.effective_chat.id,
+                                       photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true",
+                                       caption=caption,
+                                       parse_mode="Markdown")
     except Exception as e:
         logging.error(f"Ошибка при отправке фото для 'Обо мне': {e}")
         await query.message.reply_text("Произошла ошибка. Попробуйте позже.")
@@ -748,7 +621,10 @@ async def handle_earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     caption = ("💡 Как заработать баллы:\n1. Бесплатный курс\n2. Челленджи\n3. Реферальная система\n4. Платный курс")
     try:
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true", caption=caption, parse_mode="Markdown")
+        await context.bot.send_photo(chat_id=update.effective_chat.id,
+                                       photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true",
+                                       caption=caption,
+                                       parse_mode="Markdown")
     except Exception as e:
         logging.error(f"Ошибка при отправке фото для 'Как заработать баллы': {e}")
         await query.message.reply_text("Произошла ошибка. Попробуйте позже.")
@@ -759,7 +635,10 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
     score = user_scores.get(user_id, 0)
     caption = f"💰 Как потратить баллы:\nУ вас {score} баллов.\nМожно получить скидки на курсы и товары."
     try:
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true", caption=caption, parse_mode="Markdown")
+        await context.bot.send_photo(chat_id=update.effective_chat.id,
+                                       photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true",
+                                       caption=caption,
+                                       parse_mode="Markdown")
     except Exception as e:
         logging.error(f"Ошибка при отправке фото для 'Как потратить баллы': {e}")
         await query.message.reply_text("Произошла ошибка. Попробуйте позже.")
@@ -773,22 +652,28 @@ async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TY
     ])
     await query.message.reply_text("Меню питания доступно для покупки.", reply_markup=keyboard)
 
-# -------------------------------------------------------------------
-# Функция для отмены КБЖУ-опроса
-# -------------------------------------------------------------------
-async def kbju_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Опрос КБЖУ отменен.", reply_markup=main_menu())
-    return ConversationHandler.END
+async def handle_buy_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    trainer = context.user_data[user_id].get("instructor")
+    current = trainer_scores.get(trainer, {}).get(user_id, 0)
+    if current >= 300:
+        trainer_scores[trainer][user_id] = current - 300
+        await query.message.reply_text("Покупка меню питания успешно завершена!\nВот ваше меню: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
+    else:
+        await query.message.reply_text("Недостаточно баллов для покупки меню питания!")
 
-# -------------------------------------------------------------------
-# Основной обработчик команды /start и запуск бота
-# -------------------------------------------------------------------
+async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.message.reply_text("Главное меню", reply_markup=main_menu())
 
+# ---------------------------
+# Основной обработчик и запуск бота
+# ---------------------------
 def main():
     logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
     application = Application.builder().token(TOKEN).build()
 
-    # Регистрация обработчиков
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern="^instructor_"))
     application.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern="^(free_course|next_day)$"))
@@ -809,10 +694,10 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="^nutrition_menu$"))
     application.add_handler(CallbackQueryHandler(handle_buy_nutrition_menu, pattern="^buy_nutrition$"))
     application.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
-    # Обработчики сообщений: сначала фото-чек, затем видео
+    
     application.add_handler(MessageHandler(filters.PHOTO, handle_receipt_photo))
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
-    # Обработчик для КБЖУ-опроса через ConversationHandler
+    
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(kbju_start, pattern="^kbju$")],
         states={
@@ -825,7 +710,7 @@ def main():
         fallbacks=[CommandHandler("cancel", kbju_cancel)],
     )
     application.add_handler(conv_handler)
-
+    
     print("Бот запущен и готов к работе.")
     application.run_polling()
 
