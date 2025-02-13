@@ -164,6 +164,11 @@ async def handle_send_paid_report(update: Update, context: ContextTypes.DEFAULT_
     user_waiting_for_paid_video[user_id] = current_day
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за платный курс.")
 
+async def handle_next_paid_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    await start_paid_course(query.message, context, user_id)
 
 async def send_trainer_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int, trainer: str):
     """
