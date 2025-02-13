@@ -153,6 +153,17 @@ def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     prefix = "👩" if gender == "female" else "👨"
     suffix = "🏠" if program == "home" else "🏋️"
     return f"{prefix}{suffix} Отправить отчет"
+    
+async def handle_send_paid_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    try:
+        current_day = int(query.data.split("_")[-1])
+    except Exception:
+        current_day = 1
+    user_waiting_for_paid_video[user_id] = current_day
+    await query.message.reply_text("Пожалуйста, отправьте видео-отчет за платный курс.")
+
 
 async def send_trainer_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int, trainer: str):
     """
