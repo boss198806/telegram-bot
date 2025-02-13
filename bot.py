@@ -311,6 +311,21 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=main_menu()
             )
         return
+        
+async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()  # Обязательно отвечаем на callback, чтобы Telegram не выдавал ошибку
+    user_id = query.from_user.id
+    # Если данные о поле или программе отсутствуют, запрашиваем их:
+    if "gender" not in context.user_data.get(user_id, {}) or "program" not in context.user_data.get(user_id, {}):
+        gender_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Мужчина", callback_data="gender_male"),
+             InlineKeyboardButton("Женщина", callback_data="gender_female")]
+        ])
+        await query.message.reply_text("Пожалуйста, выберите ваш пол:", reply_markup=gender_keyboard)
+        return
+    # Если данные уже есть, запускаем бесплатный курс:
+    await start_free_course(query.message, context, user_id)
 
     # Платный курс
     if user_id in user_waiting_for_paid_video:
