@@ -16,6 +16,20 @@ load_dotenv()
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROUP_ID = os.environ.get("GROUP_ID")
 
+# Пример функции start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    context.user_data.setdefault(user_id, {"current_day": 1})  # Инициализация данных пользователя
+
+    # Отправка приветственного сообщения и кнопок для выбора тренера
+    await update.message.reply_text(
+        "Привет! Добро пожаловать в фитнес-бот. Выберите инструктора.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_evgeniy")],
+            [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_anastasiya")]
+        ])
+    )
+
 # Глобальные словари и константы
 user_scores = {}  # общий счет пользователя
 user_status = {}  # статус пользователя
@@ -28,6 +42,7 @@ trainer_scores = {
 }
 
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
+
 
 # Программы для бесплатного курса (5 дней)
 free_course_program = {
