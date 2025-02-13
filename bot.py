@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
@@ -10,16 +11,19 @@ from telegram.ext import (
     ContextTypes,
 )
 
+# Load environment variables from .env file
+load_dotenv()
+
+# Access environment variables
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+GROUP_ID = os.getenv("GROUP_ID")
+
 # Configure logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
-
-# Use environment variables for sensitive data
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-GROUP_ID = os.getenv("GROUP_ID")
 
 # Global dictionaries for each trainer
 user_scores_evgeniy = {}
