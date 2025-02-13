@@ -26,7 +26,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_anastasiya")]
     ]))
 
-
+async def handle_instructor_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    # Получаем выбранного тренера, ожидаем, что callback_data имеет формат "instructor_<имя>"
+    trainer = query.data.split("_", 1)[-1]
+    user_id = query.from_user.id
+    # Сохраняем выбранного тренера для пользователя
+    context.user_data.setdefault(user_id, {})["instructor"] = trainer
+    await query.message.edit_text(f"Вы выбрали тренера: {trainer.title()}")
+    # Отправляем меню тренера (функция send_trainer_menu должна быть определена)
+    await send_trainer_menu(context, query.message.chat_id, trainer)
+    
 # Глобальные словари
 user_scores = {}                # общий счёт пользователя
 user_status = {}                # статус пользователя
