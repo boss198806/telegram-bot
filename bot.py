@@ -75,7 +75,7 @@ free_course_program = {
     ],
 }
 
-# Программа для платного курса (5 дней) – после подтверждения выдается 1-дневная программа
+# Программа для платного курса (5 дней) – после подтверждения выдаётся 1-дневная программа
 paid_course_program = {
     1: [
         "1️⃣ Жим лежа 3x12 [Видео](https://t.me/c/2241417709/500/501)",
@@ -297,11 +297,11 @@ async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
     context.user_data.setdefault(user_id, {})["gender"] = "male" if query.data == "gender_male" else "female"
-    keyboard = InlineKeyboardMarkup([
+    # Используем edit_message_text, чтобы заменить кнопки
+    await query.edit_message_text("Выберите программу:", reply_markup=InlineKeyboardMarkup([
         [InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
          InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]
-    ])
-    await query.message.reply_text("Выберите программу:", reply_markup=keyboard)
+    ]))
 
 async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -374,9 +374,9 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-    # Если по какой-то причине тренер не установлен, задаём значение по умолчанию
     trainer = context.user_data.get(user_id, {}).get("instructor")
     if not trainer:
+        # Если тренер не установлен, задаём значение по умолчанию
         trainer = "evgeniy"
         context.user_data.setdefault(user_id, {})["instructor"] = trainer
     if user_id not in user_paid_course_progress:
@@ -422,22 +422,23 @@ async def handle_receipt_photo(update: Update, context: ContextTypes.DEFAULT_TYP
 async def handle_confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    data = query.data.split("_")
-    if len(data) >= 3:
-        user_id = int(data[1])
-        trainer = data[2]
-        if user_id in user_waiting_for_receipt:
-            del user_waiting_for_receipt[user_id]
-        if user_id in user_paid_course_progress:
-            user_paid_course_progress[user_id][trainer] = 1
-        await query.message.reply_text("Оплата подтверждена!")
-        program = paid_course_program.get(1, [])
-        caption = ("📚 **Платный курс (1 день):**\n\n" +
-                   "\n".join(program) +
-                   "\n\nПосле выполнения видео-отчетов вам будут начисляться баллы.")
-        await context.bot.send_message(chat_id=user_id, text=caption, reply_markup=main_menu())
-    else:
+    # Разбиваем callback data с лимитом 3: "confirm_payment", user_id, trainer
+    try:
+        _, uid_str, trainer = query.data.split("_", 2)
+        user_id = int(uid_str)
+    except Exception as e:
         await query.message.reply_text("Ошибка подтверждения оплаты.")
+        return
+    if user_id in user_waiting_for_receipt:
+        del user_waiting_for_receipt[user_id]
+    if user_id in user_paid_course_progress:
+        user_paid_course_progress[user_id][trainer] = 1
+    await query.message.reply_text("Оплата подтверждена!")
+    program = paid_course_program.get(1, [])
+    caption = ("📚 **Платный курс (1 день):**\n\n" +
+               "\n".join(program) +
+               "\n\nПосле выполнения видео-отчетов вам будут начисляться баллы.")
+    await context.bot.send_message(chat_id=user_id, text=caption, reply_markup=main_menu())
 
 async def handle_next_paid_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -553,7 +554,9 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
 
-    await update.message.reply_text("Я не жду видео от вас.")
+    # Если видео не ожидается – не выводим сообщение об ошибке
+    # (можно добавить логирование, если необходимо)
+    return
 
 # ---------------------------
 # Функционал рефералов, личного кабинета, меню питания и прочее
@@ -692,3 +695,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
