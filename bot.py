@@ -46,7 +46,7 @@ trainer_scores = {
 
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
-# Программы курсов (5 дней)
+# Программы для бесплатного курса (5 дней)
 free_course_program = {
     1: [
         "1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)",
@@ -75,6 +75,7 @@ free_course_program = {
     ],
 }
 
+# Программа для платного курса (5 дней) – после подтверждения выдаётся 1-дневная программа
 paid_course_program = {
     1: [
         "1️⃣ Жим лежа 3x12 [Видео](https://t.me/c/2241417709/500/501)",
@@ -102,6 +103,7 @@ paid_course_program = {
     ],
 }
 
+# Программа для челленджей (5 дней, без видеоотчетов)
 challenge_program = {
     1: [
         "1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
@@ -268,17 +270,20 @@ async def send_trainer_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int, tr
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     context.user_data.setdefault(user_id, {"current_day": 1})
-    await update.message.reply_text("Привет! Добро пожаловать в фитнес-бот. Выберите инструктора.", reply_markup=InlineKeyboardMarkup([
-        [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_evgeniy")],
-        [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_anastasia")]
-    ]))
+    await update.message.reply_text(
+        "Привет! Добро пожаловать в фитнес-бот. Выберите инструктора.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_evgeniy")],
+            [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_anastasia")]
+        ])
+    )
 
 async def handle_instructor_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     trainer = query.data.split("_", 1)[-1]
     user_id = query.from_user.id
-    context.user_data.setdefault(user_id, {})["current_day"] = 1  # сбрасываем бесплатный курс
+    context.user_data.setdefault(user_id, {})["current_day"] = 1  # сброс бесплатного курса
     context.user_data[user_id]["instructor"] = trainer
     user_reports_sent[user_id] = {}  # очищаем историю отчетов
     await query.message.edit_text(f"Вы выбрали тренера: {trainer.title()}")
@@ -301,11 +306,13 @@ async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, use
         [InlineKeyboardButton(get_report_button_text(context, user_id), callback_data=f"send_report_day_{current_day}")]
     ])
     try:
-        await context.bot.send_photo(chat_id=message_obj.chat_id,
-                                     photo=f"https://github.com/boss198806/telegram-bot/blob/main/IMG_96{46+current_day}.PNG?raw=true",
-                                     caption=caption,
-                                     parse_mode="Markdown",
-                                     reply_markup=keyboard)
+        await context.bot.send_photo(
+            chat_id=message_obj.chat_id,
+            photo=f"https://github.com/boss198806/telegram-bot/blob/main/IMG_96{46+current_day}.PNG?raw=true",
+            caption=caption,
+            parse_mode="Markdown",
+            reply_markup=keyboard
+        )
     except Exception as e:
         logging.error(f"Ошибка при отправке фото бесплатного курса: {e}")
         await message_obj.reply_text("Ошибка: изображение не найдено. Продолжайте без фото.", reply_markup=keyboard)
@@ -529,7 +536,7 @@ async def kbju_goal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif goal == "gain":
         calories *= 1.2
     result_text = (f"Ваши параметры:\nПол: {context.user_data['kbju']['sex']}\nВозраст: {age}\nРост: {height} см\n"
-                   f"Активность: {context.user_data['kbju']['activity'].capitalize()}\nЦель: {goal}\n\n"
+                   f"Активность: {activity.capitalize()}\nЦель: {goal}\n\n"
                    f"Рекомендуемое количество калорий: {int(calories)} ккал/день")
     await query.message.reply_text(result_text, reply_markup=main_menu())
     return ConversationHandler.END
@@ -694,10 +701,10 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="^nutrition_menu$"))
     application.add_handler(CallbackQueryHandler(handle_buy_nutrition_menu, pattern="^buy_nutrition$"))
     application.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
-    
+
     application.add_handler(MessageHandler(filters.PHOTO, handle_receipt_photo))
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
-    
+
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(kbju_start, pattern="^kbju$")],
         states={
@@ -710,7 +717,7 @@ def main():
         fallbacks=[CommandHandler("cancel", kbju_cancel)],
     )
     application.add_handler(conv_handler)
-    
+
     print("Бот запущен и готов к работе.")
     application.run_polling()
 
