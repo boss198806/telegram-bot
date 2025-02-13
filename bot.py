@@ -1,4 +1,4 @@
-import logging
+mport logging
 import os
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
@@ -6,18 +6,26 @@ from telegram.ext import (
     CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
-    ConversationHandler,
     filters,
     ContextTypes,
 )
 from dotenv import load_dotenv
 
-# Загружаем переменные окружения (для локальной разработки)
 load_dotenv()
 
-# Получаем токен и ID группы из переменных окружения
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROUP_ID = os.environ.get("GROUP_ID")
+
+# Пример простого определения функции start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    # Инициализация данных пользователя
+    context.user_data.setdefault(user_id, {"current_day": 1})
+    await update.message.reply_text("Привет! Добро пожаловать в фитнес-бот. Выберите инструктора.", reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_evgeniy")],
+        [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_anastasiya")]
+    ]))
+
 
 # Глобальные словари
 user_scores = {}                # общий счёт пользователя
