@@ -20,9 +20,9 @@ GROUP_ID = os.environ.get("GROUP_ID")
 # ---------------------------
 # Глобальные словари и константы
 # ---------------------------
-user_scores = {}                # общий счет пользователя
-user_status = {}                # статус пользователя
-user_reports_sent = {}          # {user_id: {day: bool}} – отчеты по курсам
+user_scores = {}           # общий счет пользователя
+user_status = {}           # статус пользователя
+user_reports_sent = {}     # {user_id: {day: bool}} – отчеты по курсам
 # Для ожидания видеоотчета: значение — кортеж (course_type, day)
 user_waiting_for_video = {}
 
@@ -37,7 +37,7 @@ trainer_scores = {
 
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
-# Программы для бесплатного курса (5 дней)
+# Программы для курсов
 free_course_program = {
     1: [
         "1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)",
@@ -66,7 +66,6 @@ free_course_program = {
     ],
 }
 
-# Программа для платного курса (5 дней) – после подтверждения выдается 1-дневная программа
 paid_course_program = {
     1: [
         "1️⃣ Жим лежа 3x12 [Видео](https://t.me/c/2241417709/500/501)",
@@ -94,7 +93,6 @@ paid_course_program = {
     ],
 }
 
-# Программа для челленджей (5 дней, без видеоотчетов)
 challenge_program = {
     1: [
         "1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
@@ -137,7 +135,7 @@ def day_menu(course_type: str):
     return InlineKeyboardMarkup([buttons])
 
 # ---------------------------
-# Функции для опроса КБЖУ
+# Функции для опроса КБЖУ (сохраним этот раздел)
 # ---------------------------
 async def kbju_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -294,12 +292,11 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     await query.answer()
     trainer = query.data.split("_", 1)[-1]
     user_id = query.from_user.id
-    context.user_data.setdefault(user_id, {})["current_day"] = 1  # сброс курса
+    context.user_data.setdefault(user_id, {})["current_day"] = 1
     context.user_data[user_id]["instructor"] = trainer
-    user_reports_sent[user_id] = {}  # очищаем историю отчетов
+    user_reports_sent[user_id] = {}
     await query.message.edit_text(f"Вы выбрали тренера: {trainer.title()}")
     await send_trainer_menu(context, query.message.chat_id, trainer)
-    # После выбора тренера выводим меню выбора дня для бесплатного курса
     await query.message.reply_text("Выберите день бесплатного курса:", reply_markup=day_menu("free"))
 
 # ---------------------------
@@ -360,7 +357,7 @@ async def handle_send_free_report(update: Update, context: ContextTypes.DEFAULT_
     await query.answer("Пожалуйста, отправьте видео-отчет за выбранный день.")
 
 # ---------------------------
-# Функционал платного курса
+# Функционал платного курса (с подтверждением чека)
 # ---------------------------
 async def handle_paid_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -463,8 +460,8 @@ async def handle_send_receipt_callback(update: Update, context: ContextTypes.DEF
 
 async def handle_receipt_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
+    # Если пользователь ждет видео, то это не чек
     if user_id in user_waiting_for_video:
-        # Если ожидается видео, пропускаем (это не чек)
         return
     if user_id in user_waiting_for_receipt:
         trainer = user_waiting_for_receipt[user_id]
@@ -510,7 +507,7 @@ async def handle_next_paid_day(update: Update, context: ContextTypes.DEFAULT_TYP
     await handle_paid_course(update, context)
 
 # ---------------------------
-# Функционал рефералов, Личный кабинет, Меню питания и прочее
+# Функционал рефералов, Личный кабинет, Меню питания и пр.
 # ---------------------------
 async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -633,7 +630,8 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_send_receipt_callback, pattern=r"^send_receipt_"))
     application.add_handler(CallbackQueryHandler(handle_confirm_payment, pattern=r"^confirm_payment_"))
     application.add_handler(CallbackQueryHandler(handle_next_paid_day, pattern=r"^next_paid_day$"))
-    application.add_handler(CallbackQueryHandler(handle_challenges, pattern=r"^challenge_course$"))
+    # Для кнопки "Челленджи" теперь используем меню выбора дня для челленджа
+    application.add_handler(CallbackQueryHandler(handle_challenge_menu, pattern=r"^challenge_course$"))
     application.add_handler(CallbackQueryHandler(handle_referral, pattern=r"^referral$"))
     application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern=r"^my_cabinet$"))
     application.add_handler(CallbackQueryHandler(handle_about_me, pattern=r"^about_me$"))
