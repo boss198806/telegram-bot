@@ -28,7 +28,7 @@ user_waiting_for_video = {}     # ожидание видео-отчёта дл�
 user_paid_course_progress = {}   # user_id -> текущий день платного курса
 user_waiting_for_paid_video = {}   # ожидание видео-отчёта для платного курса: user_id -> текущий день
 
-# Для челленджей – отдельное хранение прогресса
+# Для челленджей – хранение прогресса
 user_challenge_progress = {}    # user_id -> текущий день челленджа (от 1 до 5)
 
 # Начисление баллов для каждого тренера (отдельно)
@@ -391,14 +391,14 @@ async def handle_complete_challenge(update: Update, context: ContextTypes.DEFAUL
     await query.message.reply_text(response_text, reply_markup=main_menu())
 
 # -------------------------------------------------------------------
-# Обработчик входящих видео (для бесплатного и платного курсов)
+# Обработка входящих видео (для бесплатного и платного курсов)
 # -------------------------------------------------------------------
 
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
 
-    # Если пользователь ожидается для бесплатного курса
+    # Обработка для бесплатного курса
     if user_id in user_waiting_for_video:
         current_day = user_waiting_for_video[user_id]
         await context.bot.send_message(
@@ -419,17 +419,20 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             new_day = context.user_data[user_id]["current_day"]
             user_waiting_for_video[user_id] = new_day
             await update.message.reply_text(
-                f"Отчет за день {current_day} принят! Ваши баллы: {user_scores[user_id]}. Готовы к следующему дню ({new_day})?"
+                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton(f"➡️ День {new_day}", callback_data="next_day")]
+                ])
             )
         else:
             user_status[user_id] = statuses[1]
             await update.message.reply_text(
-                f"Поздравляем! Вы завершили бесплатный курс! Ваши баллы: {user_scores[user_id]}.",
+                f"Поздравляем! Вы завершили бесплатный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
                 reply_markup=main_menu()
             )
         return
 
-    # Если пользователь ожидается для платного курса
+    # Обработка для платного курса
     if user_id in user_waiting_for_paid_video:
         current_day = user_waiting_for_paid_video[user_id]
         await context.bot.send_message(
@@ -445,11 +448,14 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_paid_course_progress[user_id] = current_day + 1
         if current_day < 5:
             await update.message.reply_text(
-                f"Отчет за день {current_day} принят! Ваши баллы: {user_scores[user_id]}. Готовы к следующему дню ({current_day + 1})?"
+                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton(f"➡️ День {current_day + 1}", callback_data="next_paid_day")]
+                ])
             )
         else:
             await update.message.reply_text(
-                f"Поздравляем! Вы завершили платный курс! Ваши баллы: {user_scores[user_id]}.",
+                f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
                 reply_markup=main_menu()
             )
         return
@@ -618,8 +624,7 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
     # Обработчики сообщений (например, для видео-отчетов)
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
-    # Для примера – обработчик фотографий (можно изменить по необходимости)
-    application.add_handler(MessageHandler(filters.PHOTO, handle_nutrition_menu))
+    application.add_handler(MessageHandler(filters.PHOTO, handle_nutrition_menu))  # пример, корректируйте при необходимости
 
     print("Бот запущен и готов к работе.")
     application.run_polling()
