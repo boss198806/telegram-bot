@@ -11,22 +11,25 @@ from telegram.ext import (
 )
 from dotenv import load_dotenv
 
-# Загружаем переменные окружения из файла .env (для локальной разработки)
+# Загружаем переменные окружения (для локальной разработки)
 load_dotenv()
 
-# Получаем токен бота и ID группы из переменных окружения
+# Получаем токен и ID группы из переменных окружения
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROUP_ID = os.environ.get("GROUP_ID")
 
 # Глобальные словари для хранения данных
 user_scores = {}                # общий счёт пользователя
-user_status = {}                # статус пользователя ("Новичок", "Бывалый" и т.д.)
+user_status = {}                # статус пользователя (например, "Новичок", "Бывалый", и т.д.)
 user_reports_sent = {}          # для бесплатного курса: day -> bool (отчёт отправлен)
 user_waiting_for_video = {}     # ожидание видео-отчёта для бесплатного курса: user_id -> текущий день
 
 # Для платного курса – отдельные словари
 user_paid_course_progress = {}   # user_id -> текущий день платного курса
 user_waiting_for_paid_video = {}   # ожидание видео-отчёта для платного курса: user_id -> текущий день
+
+# Для челленджей – отдельное хранение прогресса
+user_challenge_progress = {}    # user_id -> текущий день челленджа (от 1 до 5)
 
 # Начисление баллов для каждого тренера (отдельно)
 trainer_scores = {
@@ -39,7 +42,7 @@ trainer_scores = {
 
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
-# Программы для бесплатного и платного курсов (по 5 дней)
+# Программы для бесплатного курса (5 дней)
 free_course_program = {
     1: [
         "1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)",
@@ -68,6 +71,7 @@ free_course_program = {
     ],
 }
 
+# Программа для платного курса (5 дней)
 paid_course_program = {
     1: [
         "1️⃣ Жим лежа 3x12 [Видео](https://t.me/c/2241417709/500/501)",
@@ -92,6 +96,34 @@ paid_course_program = {
         "1️⃣ Жим штанги 3x12 [Видео](https://t.me/c/2241417709/522/523)",
         "2️⃣ Тяга гантелей 3x15 [Видео](https://t.me/c/2241417709/524/525)",
         "3️⃣ Приседания с гантелями 3x15 [Видео](https://t.me/c/2241417709/526/527)",
+    ],
+}
+
+# Программа для челленджей (5 дней, без видеоотчетов – только задание и начисление 60 баллов)
+challenge_program = {
+    1: [
+        "1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
+        "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+        "3️⃣ Велосипед 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)",
+    ],
+    2: [
+        "1️⃣ Присед со штангой 30 раз [Видео](https://t.me/c/2241417709/140/141)",
+        "2️⃣ Отжимания с отрывом рук 25 раз [Видео](https://t.me/c/2241417709/393/394)",
+        "3️⃣ Полные подъёмы корпуса 30 раз [Видео](https://t.me/c/2241417709/274/275)",
+    ],
+    3: [
+        "1️⃣ Планка 3 мин [Видео](https://t.me/c/2241417709/286/296)",
+        "2️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)",
+    ],
+    4: [
+        "1️⃣ Выпады назад 60 раз [Видео](https://t.me/c/2241417709/155/156)",
+        "2️⃣ Лодочка + сгибание в локтях 50 раз [Видео](https://t.me/c/2241417709/183/184)",
+        "3️⃣ Велосипед 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)",
+    ],
+    5: [
+        "1️⃣ Присед со штангой 50 раз [Видео](https://t.me/c/2241417709/140/141)",
+        "2️⃣ Отжимания с отрывом рук 40 раз [Видео](https://t.me/c/2241417709/393/394)",
+        "3️⃣ Полные подъёмы корпуса 50 раз [Видео](https://t.me/c/2241417709/274/275)",
     ],
 }
 
@@ -121,8 +153,8 @@ def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
 
 async def send_trainer_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int, trainer: str):
     """
-    Универсальная функция отправки меню тренера:
-    - Для Евгения отправляется видео,
+    Отправка меню выбранного тренера:
+    - Для Евгения – видео,
     - Для Анастасии – фото,
     - Для остальных – тестовые фото.
     """
@@ -161,29 +193,23 @@ async def send_trainer_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int, tr
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id
-        # Обработка реферального параметра (начисление 100 баллов рефереру)
+        # Обработка реферального параметра (100 баллов для реферера)
         if context.args:
-            referrer_id_str = context.args[0]
             try:
-                referrer_id = int(referrer_id_str)
+                referrer_id = int(context.args[0])
                 if referrer_id != user_id:
                     user_scores[referrer_id] = user_scores.get(referrer_id, 0) + 100
-                    try:
-                        await context.bot.send_message(
-                            chat_id=referrer_id,
-                            text="Поздравляем! Новый пользователь воспользовался вашей реферальной ссылкой. Вы получили 100 баллов!"
-                        )
-                    except Exception as e:
-                        logging.error(f"Ошибка отправки сообщения о реферальном бонусе: {e}")
+                    await context.bot.send_message(
+                        chat_id=referrer_id,
+                        text="Поздравляем! Новый пользователь воспользовался вашей реферальной ссылкой. Вы получили 100 баллов!"
+                    )
             except ValueError:
                 pass
 
-        # Инициализация данных пользователя
         context.user_data.setdefault(user_id, {"current_day": 1})
         user_scores[user_id] = user_scores.get(user_id, 0)
         user_status[user_id] = user_status.get(user_id, statuses[0])
 
-        # Отправляем меню выбора инструктора
         instructor_keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_evgeniy")],
             [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_anastasiya")],
@@ -198,24 +224,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         logging.error(f"Ошибка в /start: {e}")
-        await update.message.reply_text("Произошла ошибка. Пожалуйста, попробуйте позже.")
+        await update.message.reply_text("Произошла ошибка. Попробуйте позже.")
 
 async def handle_instructor_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    data = query.data  # формат: instructor_<trainer>
-    user_id = query.from_user.id
     await query.answer()
-    trainer = data.split("_", 1)[-1]
+    trainer = query.data.split("_", 1)[-1]
+    user_id = query.from_user.id
     context.user_data[user_id]["instructor"] = trainer
     await query.message.edit_text(f"Вы выбрали тренера: {trainer.title()}")
     await send_trainer_menu(context, query.message.chat_id, trainer)
 
 # -------------------------------------------------------------------
-# Функционал бесплатного курса (до 5 дней, начисление 60 баллов)
+# Функционал бесплатного курса (5 дней, 60 баллов за день)
 # -------------------------------------------------------------------
 
 async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-    # Бесплатный курс доступен только, например, для женщин, выбравших программу "Дома"
     if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
         await message_obj.reply_text("Пока в разработке", reply_markup=main_menu())
         return
@@ -227,12 +251,10 @@ async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, use
 
     program = free_course_program.get(current_day, [])
     caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n" + "\n".join(program) + "\n\nОтправьте видео-отчет за день!"
-    report_button_text = get_report_button_text(context, user_id)
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(report_button_text, callback_data=f"send_report_day_{current_day}")]
+        [InlineKeyboardButton(get_report_button_text(context, user_id), callback_data=f"send_report_day_{current_day}")]
     ])
     try:
-        # Пример URL для фото; отредактируйте под свои изображения
         await context.bot.send_photo(
             chat_id=message_obj.chat_id,
             photo=f"https://github.com/boss198806/telegram-bot/blob/main/IMG_96{46+current_day}.PNG?raw=true",
@@ -286,79 +308,8 @@ async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_waiting_for_video[user_id] = current_day
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день.")
 
-async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    user_name = update.message.from_user.first_name
-
-    # Обработка видео для бесплатного курса
-    if user_id in user_waiting_for_video:
-        current_day = user_waiting_for_video[user_id]
-        await context.bot.send_message(
-            chat_id=GROUP_ID,
-            text=f"Бесплатный курс. Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
-        )
-        await context.bot.send_video(
-            chat_id=GROUP_ID,
-            video=update.message.video.file_id
-        )
-        user_reports_sent.setdefault(user_id, {})[current_day] = True
-        user_scores[user_id] += 60
-        trainer = context.user_data[user_id].get("instructor", "evgeniy")
-        trainer_scores[trainer][user_id] = trainer_scores[trainer].get(user_id, 0) + 60
-        del user_waiting_for_video[user_id]
-        if current_day < 5:
-            context.user_data[user_id]["current_day"] += 1
-            new_day = context.user_data[user_id]["current_day"]
-            user_waiting_for_video[user_id] = new_day
-            await update.message.reply_text(
-                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.\nГотовы к следующему дню ({new_day})?",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton(f"➡️ День {new_day}", callback_data="next_day")]
-                ]),
-            )
-        else:
-            user_status[user_id] = statuses[1]
-            await update.message.reply_text(
-                f"Поздравляем! Вы завершили бесплатный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
-                reply_markup=main_menu(),
-            )
-        return
-
-    # Обработка видео для платного курса
-    if user_id in user_waiting_for_paid_video:
-        current_day = user_waiting_for_paid_video[user_id]
-        await context.bot.send_message(
-            chat_id=GROUP_ID,
-            text=f"Платный курс. Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
-        )
-        await context.bot.send_video(
-            chat_id=GROUP_ID,
-            video=update.message.video.file_id
-        )
-        user_scores[user_id] += 30
-        del user_waiting_for_paid_video[user_id]
-        user_paid_course_progress[user_id] = current_day + 1
-        if current_day < 5:
-            await update.message.reply_text(
-                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.\nГотовы к следующему дню ({current_day+1})?",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton(f"➡️ День {current_day+1}", callback_data="next_paid_day")]
-                ]),
-            )
-        else:
-            await update.message.reply_text(
-                f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
-                reply_markup=main_menu(),
-            )
-        return
-
-async def handle_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    await start_free_course(query.message, context, user_id)
-
 # -------------------------------------------------------------------
-# Функционал платного курса (до 5 дней, начисление 30 баллов)
+# Функционал платного курса (5 дней, 30 баллов за день)
 # -------------------------------------------------------------------
 
 async def start_paid_course(message_obj, context: ContextTypes.DEFAULT_TYPE, user_id: int):
@@ -404,7 +355,46 @@ async def handle_next_paid_day(update: Update, context: ContextTypes.DEFAULT_TYP
     await start_paid_course(query.message, context, user_id)
 
 # -------------------------------------------------------------------
-# Прочий функционал: Меню питания, Рефералы, Личный кабинет и пр.
+# Функционал челленджей (5 дней, без видеоотчетов – просто задание и начисление 60 баллов)
+# -------------------------------------------------------------------
+
+async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    # Если у пользователя не задан прогресс по челленджу, начинаем с 1 дня
+    if user_id not in user_challenge_progress:
+        user_challenge_progress[user_id] = 1
+    current_day = user_challenge_progress[user_id]
+    program = challenge_program.get(current_day, [])
+    caption = f"💪 **Челлендж: День {current_day}** 💪\n\n" + "\n".join(program) + "\n\nНажмите 'Завершить челлендж', чтобы получить 60 баллов!"
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Завершить челлендж", callback_data="complete_challenge")],
+        [InlineKeyboardButton("Назад", callback_data="back")]
+    ])
+    await query.message.reply_text(caption, parse_mode="Markdown", reply_markup=keyboard)
+
+async def handle_complete_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    # Начисляем 60 баллов за текущий день челленджа
+    user_scores[user_id] = user_scores.get(user_id, 0) + 60
+    trainer = context.user_data[user_id].get("instructor", "evgeniy")
+    trainer_scores[trainer][user_id] = trainer_scores[trainer].get(user_id, 0) + 60
+    current_day = user_challenge_progress.get(user_id, 1)
+    response_text = f"Челлендж за день {current_day} выполнен! Вам начислено 60 баллов. Общий счет: {user_scores[user_id]}."
+    # Если день меньше 5 – переходим на следующий день; иначе – завершаем челлендж
+    if current_day < 5:
+        user_challenge_progress[user_id] = current_day + 1
+        response_text += f"\nПереходим к дню {current_day + 1}."
+    else:
+        response_text += "\nПоздравляем, вы завершили все челленджи!"
+        del user_challenge_progress[user_id]
+    await query.message.reply_text(response_text, reply_markup=main_menu())
+
+# -------------------------------------------------------------------
+# Прочий функционал: Меню питания, Рефералы, Личный кабинет, и пр.
 # -------------------------------------------------------------------
 
 async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -554,6 +544,7 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_send_paid_report, pattern=r"^send_paid_report_day_\d+"))
     application.add_handler(CallbackQueryHandler(handle_next_paid_day, pattern="^next_paid_day$"))
     application.add_handler(CallbackQueryHandler(handle_challenges, pattern="^challenge_menu$"))
+    application.add_handler(CallbackQueryHandler(handle_complete_challenge, pattern="^complete_challenge$"))
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="^nutrition_menu$"))
     application.add_handler(CallbackQueryHandler(handle_buy_nutrition_menu, pattern="^buy_nutrition_menu$"))
     application.add_handler(CallbackQueryHandler(handle_referral, pattern="^referral$"))
@@ -564,7 +555,7 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
     # Обработчики сообщений (например, для видео-отчетов)
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
-    application.add_handler(MessageHandler(filters.PHOTO, handle_nutrition_menu))  # пример, корректируйте по необходимости
+    application.add_handler(MessageHandler(filters.PHOTO, handle_nutrition_menu))  # пример, корректируйте при необходимости
 
     print("Бот запущен и готов к работе.")
     application.run_polling()
