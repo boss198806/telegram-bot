@@ -621,7 +621,7 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern=r"^(free_course|next_day)$"))
     application.add_handler(CallbackQueryHandler(handle_gender, pattern=r"^gender_"))
     application.add_handler(CallbackQueryHandler(handle_program, pattern=r"^program_"))
-    application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"^send_report_day_\d+"))
+    application.add_handler(CallbackQueryHandler(handle_send_free_report, pattern=r"^send_report_day_\d+"))
     application.add_handler(CallbackQueryHandler(handle_paid_course, pattern=r"^paid_course$"))
     # Меню выбора дня для курсов:
     application.add_handler(CallbackQueryHandler(handle_free_day, pattern=r"^free_day_\d+"))
