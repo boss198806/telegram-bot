@@ -11,7 +11,7 @@ from telegram.ext import (
 )
 
 # Для продакшена токен и ID группы лучше задавать через переменные окружения
-TOKEN = os.environ.get("TELEGRAM_TOKEN", "YOUR_TELEGRAM_BOT_TOKEN")
+TOKEN = os.environ.get("TELEGRAM_TOKEN", "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs")
 GROUP_ID = os.environ.get("GROUP_ID", "-1002451371911")
 
 # Глобальные словари для хранения данных
