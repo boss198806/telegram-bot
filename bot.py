@@ -6,6 +6,7 @@ from telegram.ext import (
     CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
+    filters,
     ContextTypes,
 )
 from dotenv import load_dotenv
@@ -120,104 +121,65 @@ def day_menu(course_type: str):
         buttons.append(InlineKeyboardButton(f"День {i}", callback_data=f"{course_type}_day_{i}"))
     return InlineKeyboardMarkup([buttons])
 
-# Команды для запуска и выбора тренера
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    context.user_data.setdefault(user_id, {"current_day": 1})
-    await update.message.reply_text(
-        "Привет! Добро пожаловать в фитнес-бот. Выберите инструктора.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_evgeniy")],
-            [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_anastasia")]
-        ])
-    )
-
+# Обработчики для курсов
 async def handle_instructor_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    trainer = query.data.split("_", 1)[-1]
-    user_id = query.from_user.id
-    context.user_data.setdefault(user_id, {})["current_day"] = 1
-    context.user_data[user_id]["instructor"] = trainer
-    await query.message.edit_text(f"Вы выбрали тренера: {trainer.title()}")
-    await send_trainer_menu(context, query.message.chat_id, trainer)
-    await query.message.reply_text("Выберите день курса:", reply_markup=day_menu("free"))
+    trainer = query.data.split("_")[-1]
+    context.user_data["instructor"] = trainer
+    await query.message.edit_text(f"Вы выбрали тренера: {trainer.title()}.\n\nТеперь выберите пол:")
 
-async def send_trainer_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int, trainer: str):
-    caption = f"Вы выбрали тренера: {trainer.title()}"
-    trainer_media = {
-        "evgeniy": {"type": "video", "url": "https://example.com/video"},
-        "anastasia": {"type": "photo", "url": "https://example.com/photo.jpg"},
-    }
-    media = trainer_media.get(trainer)
-    if media:
-        if media["type"] == "video":
-            await context.bot.send_video(chat_id=chat_id, video=media["url"], caption=caption, reply_markup=main_menu())
-        else:
-            await context.bot.send_photo(chat_id=chat_id, photo=media["url"], caption=caption, reply_markup=main_menu())
+    gender_keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Мужчина", callback_data="gender_male"),
+         InlineKeyboardButton("Женщина", callback_data="gender_female")]
+    ])
+    await query.message.reply_text("Выберите пол:", reply_markup=gender_keyboard)
 
-# Обработчики для курсов
-async def handle_free_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    day = int(query.data.split("_")[-1])
-    program = free_course_program.get(day, [])
-    text = f"**Бесплатный курс: День {day}**\n\n" + "\n".join(program)
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Отправить отчет", callback_data=f"send_free_report_{day}")]
-    ])
     user_id = query.from_user.id
-    user_waiting_for_video[user_id] = ("free", day)
-    await query.edit_message_text(text, reply_markup=keyboard)
+    gender = "male" if query.data == "gender_male" else "female"
+    context.user_data["gender"] = gender
 
-async def handle_paid_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # После выбора пола - выбор дома или в зале
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Дома", callback_data="program_home"),
+         InlineKeyboardButton("В зале", callback_data="program_gym")]
+    ])
+    await query.message.edit_text("Выберите, где вы будете тренироваться:", reply_markup=keyboard)
+
+async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    day = int(query.data.split("_")[-1])
-    program = paid_course_program.get(day, [])
-    text = f"**Платный курс: День {day}**\n\n" + "\n".join(program)
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Отправить отчет", callback_data=f"send_paid_report_{day}")]
-    ])
-    user_id = query.from_user.id
-    user_waiting_for_video[user_id] = ("paid", day)
-    await query.edit_message_text(text, reply_markup=keyboard)
+    program_type = query.data.split("_")[-1]  # "home" или "gym"
+    context.user_data["program"] = program_type
 
-async def handle_challenge_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Показ программы курса
+    trainer = context.user_data["instructor"]
+    day_buttons = day_menu(f"{trainer}_{program_type}")
+    program_text = f"Программа для тренера {trainer.title()}, дня {context.user_data['current_day']}"
+    await query.message.edit_text(program_text, reply_markup=day_buttons)
+
+async def handle_send_free_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    day = int(query.data.split("_")[-1])
-    program = challenge_program.get(day, [])
-    text = f"**Челлендж: День {day}**\n\n" + "\n".join(program)
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Отправить отчет", callback_data=f"send_challenge_report_{day}")]
-    ])
     user_id = query.from_user.id
-    user_waiting_for_video[user_id] = ("challenge", day)
-    await query.edit_message_text(text, reply_markup=keyboard)
-
-# Обработка видео-отчета
-async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    if user_id in user_waiting_for_video:
-        course_type, day = user_waiting_for_video[user_id]
+    course_type, day = user_waiting_for_video[user_id]
+    
+    if course_type == "free":
+        # Отправка отчета в группу
         await context.bot.send_message(
             chat_id=GROUP_ID,
-            text=f"Видео-отчет от пользователя {user_id} за {course_type} курс, День {day}."
+            text=f"Видео-отчет от пользователя {user_id} за бесплатный курс, День {day}."
         )
         await context.bot.send_video(
             chat_id=GROUP_ID,
             video=update.message.video.file_id
         )
-        if course_type == "free":
-            user_scores[user_id] = user_scores.get(user_id, 0) + 60
-            reply_text = f"Отчет за День {day} принят! Вам начислено 60 баллов."
-        elif course_type == "challenge":
-            user_scores[user_id] = user_scores.get(user_id, 0) + 60
-            reply_text = f"Отчет за День {day} принят! Вам начислено 60 баллов."
-        elif course_type == "paid":
-            user_scores[user_id] = user_scores.get(user_id, 0) + 30
-            reply_text = f"Отчет за День {day} принят! Вам начислено 30 баллов."
+        # Начисление баллов
+        user_scores[user_id] = user_scores.get(user_id, 0) + 60
+        reply_text = f"Отчет за День {day} принят! Вам начислено 60 баллов."
         del user_waiting_for_video[user_id]
         await update.message.reply_text(reply_text, reply_markup=main_menu())
 
@@ -229,12 +191,9 @@ def main():
     # Регистрация обработчиков
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern=r"^instructor_"))
-    application.add_handler(CallbackQueryHandler(handle_free_day, pattern=r"^free_day_\d+"))
-    application.add_handler(CallbackQueryHandler(handle_paid_day, pattern=r"^paid_day_\d+"))
-    application.add_handler(CallbackQueryHandler(handle_challenge_day, pattern=r"^challenge_day_\d+"))
+    application.add_handler(CallbackQueryHandler(handle_gender, pattern=r"^gender_"))
+    application.add_handler(CallbackQueryHandler(handle_program, pattern=r"^program_"))
     application.add_handler(CallbackQueryHandler(handle_send_free_report, pattern=r"^send_free_report_\d+"))
-    application.add_handler(CallbackQueryHandler(handle_send_paid_report, pattern=r"^send_paid_report_\d+"))
-    application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"^send_challenge_report_\d+"))
     application.add_handler(MessageHandler(filters.PHOTO, handle_receipt_photo))
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
 
