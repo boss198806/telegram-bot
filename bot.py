@@ -355,14 +355,13 @@ async def handle_next_paid_day(update: Update, context: ContextTypes.DEFAULT_TYP
     await start_paid_course(query.message, context, user_id)
 
 # -------------------------------------------------------------------
-# Функционал челленджей (5 дней, без видеоотчетов – просто задание и начисление 60 баллов)
+# Функционал челленджей (5 дней, без видеоотчетов – только задание и начисление 60 баллов)
 # -------------------------------------------------------------------
 
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-    # Если у пользователя не задан прогресс по челленджу, начинаем с 1 дня
     if user_id not in user_challenge_progress:
         user_challenge_progress[user_id] = 1
     current_day = user_challenge_progress[user_id]
@@ -378,13 +377,11 @@ async def handle_complete_challenge(update: Update, context: ContextTypes.DEFAUL
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-    # Начисляем 60 баллов за текущий день челленджа
     user_scores[user_id] = user_scores.get(user_id, 0) + 60
     trainer = context.user_data[user_id].get("instructor", "evgeniy")
     trainer_scores[trainer][user_id] = trainer_scores[trainer].get(user_id, 0) + 60
     current_day = user_challenge_progress.get(user_id, 1)
     response_text = f"Челлендж за день {current_day} выполнен! Вам начислено 60 баллов. Общий счет: {user_scores[user_id]}."
-    # Если день меньше 5 – переходим на следующий день; иначе – завершаем челлендж
     if current_day < 5:
         user_challenge_progress[user_id] = current_day + 1
         response_text += f"\nПереходим к дню {current_day + 1}."
@@ -394,7 +391,73 @@ async def handle_complete_challenge(update: Update, context: ContextTypes.DEFAUL
     await query.message.reply_text(response_text, reply_markup=main_menu())
 
 # -------------------------------------------------------------------
-# Прочий функционал: Меню питания, Рефералы, Личный кабинет, и пр.
+# Обработчик входящих видео (для бесплатного и платного курсов)
+# -------------------------------------------------------------------
+
+async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_name = update.message.from_user.first_name
+
+    # Если пользователь ожидается для бесплатного курса
+    if user_id in user_waiting_for_video:
+        current_day = user_waiting_for_video[user_id]
+        await context.bot.send_message(
+            chat_id=GROUP_ID,
+            text=f"Бесплатный курс. Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
+        )
+        await context.bot.send_video(
+            chat_id=GROUP_ID,
+            video=update.message.video.file_id
+        )
+        user_reports_sent.setdefault(user_id, {})[current_day] = True
+        user_scores[user_id] += 60
+        trainer = context.user_data[user_id].get("instructor", "evgeniy")
+        trainer_scores[trainer][user_id] = trainer_scores[trainer].get(user_id, 0) + 60
+        del user_waiting_for_video[user_id]
+        if current_day < 5:
+            context.user_data[user_id]["current_day"] += 1
+            new_day = context.user_data[user_id]["current_day"]
+            user_waiting_for_video[user_id] = new_day
+            await update.message.reply_text(
+                f"Отчет за день {current_day} принят! Ваши баллы: {user_scores[user_id]}. Готовы к следующему дню ({new_day})?"
+            )
+        else:
+            user_status[user_id] = statuses[1]
+            await update.message.reply_text(
+                f"Поздравляем! Вы завершили бесплатный курс! Ваши баллы: {user_scores[user_id]}.",
+                reply_markup=main_menu()
+            )
+        return
+
+    # Если пользователь ожидается для платного курса
+    if user_id in user_waiting_for_paid_video:
+        current_day = user_waiting_for_paid_video[user_id]
+        await context.bot.send_message(
+            chat_id=GROUP_ID,
+            text=f"Платный курс. Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
+        )
+        await context.bot.send_video(
+            chat_id=GROUP_ID,
+            video=update.message.video.file_id
+        )
+        user_scores[user_id] += 30
+        del user_waiting_for_paid_video[user_id]
+        user_paid_course_progress[user_id] = current_day + 1
+        if current_day < 5:
+            await update.message.reply_text(
+                f"Отчет за день {current_day} принят! Ваши баллы: {user_scores[user_id]}. Готовы к следующему дню ({current_day + 1})?"
+            )
+        else:
+            await update.message.reply_text(
+                f"Поздравляем! Вы завершили платный курс! Ваши баллы: {user_scores[user_id]}.",
+                reply_markup=main_menu()
+            )
+        return
+
+    await update.message.reply_text("Я не жду видео от вас.")
+
+# -------------------------------------------------------------------
+# Прочий функционал: Меню питания, Рефералы, Личный кабинет и пр.
 # -------------------------------------------------------------------
 
 async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -555,7 +618,8 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
     # Обработчики сообщений (например, для видео-отчетов)
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
-    application.add_handler(MessageHandler(filters.PHOTO, handle_nutrition_menu))  # пример, корректируйте при необходимости
+    # Для примера – обработчик фотографий (можно изменить по необходимости)
+    application.add_handler(MessageHandler(filters.PHOTO, handle_nutrition_menu))
 
     print("Бот запущен и готов к работе.")
     application.run_polling()
