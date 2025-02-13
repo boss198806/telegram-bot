@@ -628,7 +628,7 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_challenge_day, pattern=r"^challenge_day_\d+"))
     application.add_handler(CallbackQueryHandler(handle_paid_day, pattern=r"^paid_day_\d+"))
     # Кнопки "Отправить отчет":
-    application.add_handler(CallbackQueryHandler(handle_send_free_report, pattern=r"^send_free_report_\d+"))
+    application.add_handler(CallbackQueryHandler(handle_send_free_report, pattern=r"^send_report_day_\d+"))
     application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"^send_challenge_report_\d+"))
     application.add_handler(CallbackQueryHandler(handle_send_paid_report, pattern=r"^send_paid_report_\d+"))
     application.add_handler(CallbackQueryHandler(handle_send_receipt_callback, pattern=r"^send_receipt_"))
