@@ -303,6 +303,29 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     await query.message.reply_text("Выберите день бесплатного курса:", reply_markup=day_menu("free"))
 
 # ---------------------------
+# Функционал выбора пола и программы
+# ---------------------------
+async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    context.user_data.setdefault(user_id, {})["gender"] = "male" if query.data == "gender_male" else "female"
+    # Используем edit_message_text, чтобы заменить сообщение и не дублировать кнопки
+    await query.edit_message_text("Выберите программу:", reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
+         InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]
+    ]))
+
+async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    context.user_data.setdefault(user_id, {})["program"] = "home" if query.data == "program_home" else "gym"
+    context.user_data[user_id]["current_day"] = 1
+    # После установки программы сразу выводим меню выбора дня бесплатного курса
+    await query.edit_message_text("Программа установлена. Выберите день бесплатного курса:", reply_markup=day_menu("free"))
+
+# ---------------------------
 # Функционал бесплатного курса
 # ---------------------------
 async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, user_id: int):
@@ -311,6 +334,7 @@ async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, use
         await message_obj.reply_text("Бесплатный курс пока доступен только для женщин, выбравших программу 'Дома'.", reply_markup=main_menu())
         return
     try:
+        # Предполагаем, что день передается в callback, поэтому извлекаем его
         day = int(message_obj.text.split()[-1])
     except Exception:
         day = 1
@@ -320,7 +344,7 @@ async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, use
         [InlineKeyboardButton("Отправить отчет", callback_data=f"send_free_report_{day}")]
     ])
     user_waiting_for_video[user_id] = ("free", day)
-    await message_obj.reply_text(text, reply_markup=keyboard)
+    await message_obj.reply_text(text + "\n\nНажмите кнопку и отправьте видео-отчет.", reply_markup=keyboard)
 
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -333,7 +357,6 @@ async def handle_free_course_callback(update: Update, context: ContextTypes.DEFA
         ])
         await query.message.reply_text("Пожалуйста, выберите ваш пол:", reply_markup=gender_keyboard)
         return
-    # Если уже установлены данные, выводим меню выбора дня
     await query.message.reply_text("Выберите день бесплатного курса:", reply_markup=day_menu("free"))
 
 async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -391,7 +414,7 @@ async def handle_complete_challenge(update: Update, context: ContextTypes.DEFAUL
     await query.message.reply_text("Отчет челленджа принят! Вам начислено 60 баллов.", reply_markup=main_menu())
 
 # ---------------------------
-# Обработка видео-отчета (общая)
+# Обработка видео-отчета
 # ---------------------------
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -405,7 +428,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=GROUP_ID,
             video=update.message.video.file_id
         )
-        # Начисляем баллы
         if course_type == "free":
             user_scores[user_id] = user_scores.get(user_id, 0) + 60
             reply_text = f"Отчет за День {day} принят! Вам начислено 60 баллов."
@@ -418,11 +440,10 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         del user_waiting_for_video[user_id]
         await update.message.reply_text(reply_text, reply_markup=main_menu())
     else:
-        # Если видео не ожидалось, ничего не делаем
         pass
 
 # ---------------------------
-# Обработка чеков для платного курса
+# Обработка чеков для платного курса (с подтверждением оплаты)
 # ---------------------------
 async def handle_send_receipt_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -431,9 +452,9 @@ async def handle_send_receipt_callback(update: Update, context: ContextTypes.DEF
 
 async def handle_receipt_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    if user_id in user_waiting_for_video:  # Если пользователь ждет видео, то это не чек
+    # Если пользователь не ожидает видео (то есть это чек)
+    if user_id in user_waiting_for_video:
         return
-    # Если пользователь отправляет чек, проверяем наличие в user_waiting_for_receipt
     if user_id in user_waiting_for_receipt:
         trainer = user_waiting_for_receipt[user_id]
         user_name = update.message.from_user.first_name
@@ -462,16 +483,24 @@ async def handle_confirm_payment(update: Update, context: ContextTypes.DEFAULT_T
     except Exception:
         await query.message.reply_text("Ошибка подтверждения оплаты.")
         return
-    # После подтверждения отправляем пользователю программу платного курса за 1 день
+    # Здесь можно добавить дополнительные проверки, если необходимо
     await query.message.reply_text("Оплата подтверждена!")
     program = paid_course_program.get(1, [])
-    caption = ("📚 **Платный курс (1 день):**\n\n" +
-               "\n".join(program) +
-               "\n\nПосле выполнения видео-отчетов вам будут начисляться баллы.")
+    caption = (
+        "📚 **Платный курс (1 день):**\n\n" +
+        "\n".join(program) +
+        "\n\nПосле выполнения видео-отчетов вам будут начисляться баллы."
+    )
     await context.bot.send_message(chat_id=user_id, text=caption, reply_markup=main_menu())
 
+async def handle_next_paid_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    await handle_paid_course(update, context)
+
 # ---------------------------
-# Функционал рефералов, Личный кабинет, Меню питания и пр.
+# Функционал рефералов, Личный кабинет, Меню питания и прочее
 # ---------------------------
 async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -487,35 +516,45 @@ async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status = user_status.get(user_id, statuses[0])
     caption = f"👤 Ваш кабинет:\nСтатус: {status}\nБаллы: {score}"
     try:
-        await context.bot.send_photo(chat_id=update.effective_chat.id,
-                                       photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true",
-                                       caption=caption,
-                                       parse_mode="Markdown")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true",
+            caption=caption,
+            parse_mode="Markdown"
+        )
     except Exception as e:
         logging.error(f"Ошибка при отправке фото для 'Мой кабинет': {e}")
         await query.message.reply_text("Ошибка. Попробуйте позже.")
 
 async def handle_about_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    caption = ("👤 О тренере:\nКурочкин Евгений Витальевич\nТренировочный стаж: 20 лет\n"
-               "Стаж работы: 15 лет\nМС по становой тяге и жиму\nСудья федеральной категории")
+    caption = (
+        "👤 О тренере:\nКурочкин Евгений Витальевич\nТренировочный стаж: 20 лет\n"
+        "Стаж работы: 15 лет\nМС по становой тяге и жиму\nСудья федеральной категории"
+    )
     try:
-        await context.bot.send_photo(chat_id=update.effective_chat.id,
-                                       photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true",
-                                       caption=caption,
-                                       parse_mode="Markdown")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true",
+            caption=caption,
+            parse_mode="Markdown"
+        )
     except Exception as e:
         logging.error(f"Ошибка при отправке фото для 'Обо мне': {e}")
         await query.message.reply_text("Ошибка. Попробуйте позже.")
 
 async def handle_earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    caption = ("💡 Как заработать баллы:\n1. Бесплатный курс\n2. Челленджи\n3. Реферальная система\n4. Платный курс")
+    caption = (
+        "💡 Как заработать баллы:\n1. Бесплатный курс\n2. Челленджи\n3. Реферальная система\n4. Платный курс"
+    )
     try:
-        await context.bot.send_photo(chat_id=update.effective_chat.id,
-                                       photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true",
-                                       caption=caption,
-                                       parse_mode="Markdown")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true",
+            caption=caption,
+            parse_mode="Markdown"
+        )
     except Exception as e:
         logging.error(f"Ошибка при отправке фото для 'Как заработать баллы': {e}")
         await query.message.reply_text("Ошибка. Попробуйте позже.")
@@ -526,10 +565,12 @@ async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE
     score = user_scores.get(user_id, 0)
     caption = f"💰 Как потратить баллы:\nУ вас {score} баллов."
     try:
-        await context.bot.send_photo(chat_id=update.effective_chat.id,
-                                       photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true",
-                                       caption=caption,
-                                       parse_mode="Markdown")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true",
+            caption=caption,
+            parse_mode="Markdown"
+        )
     except Exception as e:
         logging.error(f"Ошибка при отправке фото для 'Как потратить баллы': {e}")
         await query.message.reply_text("Ошибка. Попробуйте позже.")
@@ -566,48 +607,45 @@ def main():
     application = Application.builder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern="^instructor_"))
-    application.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern="^(free_course|next_day)$"))
-    application.add_handler(CallbackQueryHandler(handle_gender, pattern="^gender_"))
-    application.add_handler(CallbackQueryHandler(handle_program, pattern="^program_"))
+    application.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern=r"^instructor_"))
+    application.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern=r"^(free_course|next_day)$"))
+    application.add_handler(CallbackQueryHandler(handle_gender, pattern=r"^gender_"))
+    application.add_handler(CallbackQueryHandler(handle_program, pattern=r"^program_"))
     application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"^send_report_day_\d+"))
-    application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="^paid_course$"))
-
-    # Меню выбора дня для курсов
-    application.add_handler(CallbackQueryHandler(handle_free_day, pattern="^free_day_\d+"))
-    application.add_handler(CallbackQueryHandler(handle_challenge_day, pattern="^challenge_day_\d+"))
-    application.add_handler(CallbackQueryHandler(handle_paid_day, pattern="^paid_day_\d+"))
-
-    # Кнопки "Отправить отчет"
+    application.add_handler(CallbackQueryHandler(handle_paid_course, pattern=r"^paid_course$"))
+    # Меню выбора дня для курсов:
+    application.add_handler(CallbackQueryHandler(handle_free_day, pattern=r"^free_day_\d+"))
+    application.add_handler(CallbackQueryHandler(handle_challenge_day, pattern=r"^challenge_day_\d+"))
+    application.add_handler(CallbackQueryHandler(handle_paid_day, pattern=r"^paid_day_\d+"))
+    # Кнопки "Отправить отчет":
     application.add_handler(CallbackQueryHandler(handle_send_free_report, pattern=r"^send_free_report_\d+"))
     application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"^send_challenge_report_\d+"))
     application.add_handler(CallbackQueryHandler(handle_send_paid_report, pattern=r"^send_paid_report_\d+"))
-
     application.add_handler(CallbackQueryHandler(handle_send_receipt_callback, pattern=r"^send_receipt_"))
     application.add_handler(CallbackQueryHandler(handle_confirm_payment, pattern=r"^confirm_payment_"))
-    application.add_handler(CallbackQueryHandler(handle_next_paid_day, pattern="^next_paid_day$"))
-    application.add_handler(CallbackQueryHandler(handle_challenges, pattern="^challenge_course$"))
-    application.add_handler(CallbackQueryHandler(handle_complete_challenge, pattern="^complete_challenge$"))
-    application.add_handler(CallbackQueryHandler(handle_referral, pattern="^referral$"))
-    application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="^my_cabinet$"))
-    application.add_handler(CallbackQueryHandler(handle_about_me, pattern="^about_me$"))
-    application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="^earn_points$"))
-    application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="^spend_points$"))
-    application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="^nutrition_menu$"))
-    application.add_handler(CallbackQueryHandler(handle_buy_nutrition_menu, pattern="^buy_nutrition$"))
-    application.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
+    application.add_handler(CallbackQueryHandler(handle_next_paid_day, pattern=r"^next_paid_day$"))
+    application.add_handler(CallbackQueryHandler(handle_challenges, pattern=r"^challenge_course$"))
+    application.add_handler(CallbackQueryHandler(handle_complete_challenge, pattern=r"^complete_challenge$"))
+    application.add_handler(CallbackQueryHandler(handle_referral, pattern=r"^referral$"))
+    application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern=r"^my_cabinet$"))
+    application.add_handler(CallbackQueryHandler(handle_about_me, pattern=r"^about_me$"))
+    application.add_handler(CallbackQueryHandler(handle_earn_points, pattern=r"^earn_points$"))
+    application.add_handler(CallbackQueryHandler(handle_spend_points, pattern=r"^spend_points$"))
+    application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern=r"^nutrition_menu$"))
+    application.add_handler(CallbackQueryHandler(handle_buy_nutrition_menu, pattern=r"^buy_nutrition$"))
+    application.add_handler(CallbackQueryHandler(handle_back, pattern=r"^back$"))
 
     application.add_handler(MessageHandler(filters.PHOTO, handle_receipt_photo))
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
 
     conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(kbju_start, pattern="^kbju$")],
+        entry_points=[CallbackQueryHandler(kbju_start, pattern=r"^kbju$")],
         states={
-            KBJU_SEX: [CallbackQueryHandler(kbju_sex, pattern="^kbju_sex_")],
+            KBJU_SEX: [CallbackQueryHandler(kbju_sex, pattern=r"^kbju_sex_")],
             KBJU_AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, kbju_age)],
             KBJU_HEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, kbju_height)],
-            KBJU_ACTIVITY: [CallbackQueryHandler(kbju_activity, pattern="^kbju_activity_")],
-            KBJU_GOAL: [CallbackQueryHandler(kbju_goal, pattern="^kbju_goal_")],
+            KBJU_ACTIVITY: [CallbackQueryHandler(kbju_activity, pattern=r"^kbju_activity_")],
+            KBJU_GOAL: [CallbackQueryHandler(kbju_goal, pattern=r"^kbju_goal_")],
         },
         fallbacks=[CommandHandler("cancel", kbju_cancel)],
     )
