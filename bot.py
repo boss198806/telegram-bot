@@ -38,6 +38,18 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     # Отправляем меню тренера (функция send_trainer_menu должна быть определена)
     await send_trainer_menu(context, query.message.chat_id, trainer)
     
+async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()  # обязательно отвечаем на callback-запрос
+    user_id = query.from_user.id
+    # Устанавливаем пол пользователя на основе callback_data ("gender_male" или "gender_female")
+    context.user_data.setdefault(user_id, {})["gender"] = "male" if query.data == "gender_male" else "female"
+    # После выбора пола переходим к выбору программы (например, дома или в зале)
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
+         InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]
+    ])
+    await query.message.reply_text("Выберите программу:", reply_markup=keyboard)
 # Глобальные словари
 user_scores = {}                # общий счёт пользователя
 user_status = {}                # статус пользователя
