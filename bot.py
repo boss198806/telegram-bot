@@ -23,7 +23,7 @@ GROUP_ID = os.environ.get("GROUP_ID")
 user_scores = {}                # общий счет пользователя
 user_status = {}                # статус пользователя
 user_reports_sent = {}          # {user_id: {day: bool}} – отчеты по курсам
-# Для ожидания видео-отчета: значение — кортеж (course_type, day)
+# Для ожидания видеоотчета: значение — кортеж (course_type, day)
 user_waiting_for_video = {}
 
 # Баллы для каждого тренера (отдельно)
@@ -310,7 +310,6 @@ async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
     context.user_data.setdefault(user_id, {})["gender"] = "male" if query.data == "gender_male" else "female"
-    # Используем edit_message_text, чтобы заменить сообщение и не дублировать кнопки
     await query.edit_message_text("Выберите программу:", reply_markup=InlineKeyboardMarkup([
         [InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
          InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]
@@ -322,20 +321,16 @@ async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     context.user_data.setdefault(user_id, {})["program"] = "home" if query.data == "program_home" else "gym"
     context.user_data[user_id]["current_day"] = 1
-    # После установки программы сразу выводим меню выбора дня бесплатного курса
     await query.edit_message_text("Программа установлена. Выберите день бесплатного курса:", reply_markup=day_menu("free"))
 
 # ---------------------------
 # Функционал бесплатного курса
 # ---------------------------
-async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-    # Бесплатный курс доступен только для женщин, выбравших "home"
-    if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
-        await message_obj.reply_text("Бесплатный курс пока доступен только для женщин, выбравших программу 'Дома'.", reply_markup=main_menu())
-        return
+async def handle_free_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
     try:
-        # Предполагаем, что день передается в callback, поэтому извлекаем его
-        day = int(message_obj.text.split()[-1])
+        day = int(query.data.split("_")[-1])
     except Exception:
         day = 1
     program = free_course_program.get(day, [])
@@ -343,8 +338,9 @@ async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, use
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Отправить отчет", callback_data=f"send_free_report_{day}")]
     ])
+    user_id = query.from_user.id
     user_waiting_for_video[user_id] = ("free", day)
-    await message_obj.reply_text(text + "\n\nНажмите кнопку и отправьте видео-отчет.", reply_markup=keyboard)
+    await query.edit_message_text(text, reply_markup=keyboard)
 
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -359,13 +355,33 @@ async def handle_free_course_callback(update: Update, context: ContextTypes.DEFA
         return
     await query.message.reply_text("Выберите день бесплатного курса:", reply_markup=day_menu("free"))
 
-async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_send_free_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer("Пожалуйста, отправьте видео-отчет за выбранный день.")
 
 # ---------------------------
 # Функционал платного курса
 # ---------------------------
+async def handle_paid_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    try:
+        day = int(query.data.split("_")[-1])
+    except Exception:
+        day = 1
+    program = paid_course_program.get(day, [])
+    text = f"📚 **Платный курс: День {day}** 📚\n\n" + "\n".join(program)
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Отправить отчет", callback_data=f"send_paid_report_{day}")]
+    ])
+    user_id = query.from_user.id
+    user_waiting_for_video[user_id] = ("paid", day)
+    await query.edit_message_text(text, reply_markup=keyboard)
+
+async def handle_send_paid_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer("Пожалуйста, отправьте видео-отчет за выбранный день.")
+
 async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -374,12 +390,7 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not trainer:
         trainer = "evgeniy"
         context.user_data.setdefault(user_id, {})["instructor"] = trainer
-    # Выводим меню выбора дня для платного курса
     await query.message.reply_text("Выберите день платного курса:", reply_markup=day_menu("paid"))
-
-async def handle_send_paid_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer("Пожалуйста, отправьте видео-отчет за выбранный день.")
 
 # ---------------------------
 # Функционал челленджей
@@ -452,8 +463,8 @@ async def handle_send_receipt_callback(update: Update, context: ContextTypes.DEF
 
 async def handle_receipt_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    # Если пользователь не ожидает видео (то есть это чек)
     if user_id in user_waiting_for_video:
+        # Если ожидается видео, пропускаем (это не чек)
         return
     if user_id in user_waiting_for_receipt:
         trainer = user_waiting_for_receipt[user_id]
@@ -483,7 +494,6 @@ async def handle_confirm_payment(update: Update, context: ContextTypes.DEFAULT_T
     except Exception:
         await query.message.reply_text("Ошибка подтверждения оплаты.")
         return
-    # Здесь можно добавить дополнительные проверки, если необходимо
     await query.message.reply_text("Оплата подтверждена!")
     program = paid_course_program.get(1, [])
     caption = (
