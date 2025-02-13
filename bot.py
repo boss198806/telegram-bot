@@ -22,18 +22,18 @@ GROUP_ID = os.environ.get("GROUP_ID")
 # ---------------------------
 user_scores = {}                # общий счёт пользователя
 user_status = {}                # статус пользователя
-user_reports_sent = {}          # для бесплатного курса: user_id -> {day: bool}
-user_waiting_for_video = {}     # для бесплатного курса: user_id -> текущий день
+user_reports_sent = {}          # для бесплатного курса: {user_id: {day: bool}}
+user_waiting_for_video = {}     # для бесплатного курса: {user_id: текущий день}
 
 # Для платного курса – прогресс и ожидание видео (отдельно для каждого тренера)
-user_paid_course_progress = {}   # user_id -> {trainer: day} (0 если не куплен)
-user_waiting_for_paid_video = {}   # user_id -> текущий день платного курса
+user_paid_course_progress = {}   # {user_id: {trainer: day}} (0, если курс не куплен)
+user_waiting_for_paid_video = {}   # {user_id: текущий день платного курса}
 
 # Для покупки платного курса (ожидание чека)
-user_waiting_for_receipt = {}    # user_id -> trainer
+user_waiting_for_receipt = {}    # {user_id: trainer}
 
 # Для челленджей – прогресс (5 дней)
-user_challenge_progress = {}    # user_id -> текущий день челленджа
+user_challenge_progress = {}    # {user_id: текущий день челленджа}
 
 # Баллы для каждого тренера (отдельно)
 trainer_scores = {
@@ -290,6 +290,28 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     await send_trainer_menu(context, query.message.chat_id, trainer)
 
 # ---------------------------
+# Функции выбора пола и программы
+# ---------------------------
+async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    context.user_data.setdefault(user_id, {})["gender"] = "male" if query.data == "gender_male" else "female"
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
+         InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]
+    ])
+    await query.message.reply_text("Выберите программу:", reply_markup=keyboard)
+
+async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    context.user_data.setdefault(user_id, {})["program"] = "home" if query.data == "program_home" else "gym"
+    context.user_data[user_id]["current_day"] = 1
+    await query.message.reply_text("Программа установлена. Бесплатный курс начинается с 1-го дня.", reply_markup=main_menu())
+
+# ---------------------------
 # Функционал бесплатного курса (5 дней, 60 баллов за день)
 # ---------------------------
 async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, user_id: int):
@@ -303,7 +325,7 @@ async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, use
     program = free_course_program.get(current_day, [])
     caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n" + "\n".join(program) + "\n\nОтправьте видео-отчет за день!"
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(get_report_button_text(context, user_id), callback_data=f"send_report_day_{current_day}")]
+        [InlineKeyboardButton(f"Отправить отчет", callback_data=f"send_report_day_{current_day}")]
     ])
     try:
         await context.bot.send_photo(
@@ -356,7 +378,7 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     if user_id not in user_paid_course_progress:
         user_paid_course_progress[user_id] = {}
-    user_paid_course_progress[user_id][trainer] = 0  # курс не куплен
+    user_paid_course_progress[user_id][trainer] = 0
     discount = min(user_scores.get(user_id, 0) * 2, 400)
     final_price = 2000 - discount
     text = (f"📚 **Платный курс** 📚\nСтоимость: 2000 руб.\nВаша скидка: {discount} руб.\nИтог: {final_price} руб.\n\n"
@@ -456,138 +478,80 @@ async def handle_complete_challenge(update: Update, context: ContextTypes.DEFAUL
     await query.message.reply_text(response_text, reply_markup=main_menu())
 
 # ---------------------------
-# Функционал КБЖУ (опрос, стоимость 300 баллов)
+# Функция обработки входящих видео (бесплатный и платный курсы)
 # ---------------------------
-async def kbju_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    trainer = context.user_data[user_id].get("instructor")
-    current_trainer_points = trainer_scores.get(trainer, {}).get(user_id, 0)
-    if current_trainer_points < 300:
-        await query.message.reply_text("Недостаточно баллов для покупки КБЖУ (требуется 300).", reply_markup=main_menu())
-        return ConversationHandler.END
-    trainer_scores[trainer][user_id] = current_trainer_points - 300
-    await query.message.reply_text("Для расчета КБЖУ ответьте на несколько вопросов.\n\nУкажите ваш пол:", reply_markup=InlineKeyboardMarkup([
-        [InlineKeyboardButton("Мужской", callback_data="kbju_sex_male"),
-         InlineKeyboardButton("Женский", callback_data="kbju_sex_female")]
-    ]))
-    return KBJU_SEX
-
-async def kbju_sex(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    context.user_data["kbju"] = {}
-    context.user_data["kbju"]["sex"] = "male" if query.data.endswith("male") else "female"
-    await query.message.reply_text("Сколько вам лет?")
-    return KBJU_AGE
-
-async def kbju_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        age = int(update.message.text)
-        context.user_data["kbju"]["age"] = age
-    except ValueError:
-        await update.message.reply_text("Введите число (ваш возраст).")
-        return KBJU_AGE
-    await update.message.reply_text("Какой ваш рост (в см)?")
-    return KBJU_HEIGHT
-
-async def kbju_height(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        height = int(update.message.text)
-        context.user_data["kbju"]["height"] = height
-    except ValueError:
-        await update.message.reply_text("Введите число (ваш рост в см).")
-        return KBJU_HEIGHT
-    await update.message.reply_text("Выберите уровень активности:", reply_markup=InlineKeyboardMarkup([
-        [InlineKeyboardButton("Низкая", callback_data="kbju_activity_low"),
-         InlineKeyboardButton("Средняя", callback_data="kbju_activity_medium"),
-         InlineKeyboardButton("Высокая", callback_data="kbju_activity_high")]
-    ]))
-    return KBJU_ACTIVITY
-
-async def kbju_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    activity = query.data.split("_")[-1]
-    context.user_data["kbju"]["activity"] = activity
-    await query.message.reply_text("Какова ваша цель?", reply_markup=InlineKeyboardMarkup([
-        [InlineKeyboardButton("Снижение веса", callback_data="kbju_goal_loss"),
-         InlineKeyboardButton("Набор массы", callback_data="kbju_goal_gain"),
-         InlineKeyboardButton("Поддержание веса", callback_data="kbju_goal_maintain")]
-    ]))
-    return KBJU_GOAL
-
-async def kbju_goal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    goal = query.data.split("_")[-1]
-    context.user_data["kbju"]["goal"] = goal
-    sex = context.user_data["kbju"]["sex"]
-    age = context.user_data["kbju"]["age"]
-    height = context.user_data["kbju"]["height"]
-    weight = height - 100 if sex == "male" else height - 110
-    bmr = 10 * weight + 6.25 * height - 5 * age + (5 if sex == "male" else -161)
-    activity = context.user_data["kbju"]["activity"]
-    factor = 1.2 if activity == "low" else 1.55 if activity == "medium" else 1.9
-    calories = bmr * factor
-    if goal == "loss":
-        calories *= 0.8
-    elif goal == "gain":
-        calories *= 1.2
-    result_text = (f"Ваши параметры:\nПол: {context.user_data['kbju']['sex']}\nВозраст: {age}\nРост: {height} см\n"
-                   f"Активность: {activity.capitalize()}\nЦель: {goal}\n\n"
-                   f"Рекомендуемое количество калорий: {int(calories)} ккал/день")
-    await query.message.reply_text(result_text, reply_markup=main_menu())
-    return ConversationHandler.END
-
-async def kbju_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Опрос КБЖУ отменен.", reply_markup=main_menu())
-    return ConversationHandler.END
-
-# ---------------------------
-# Основное меню (с кнопками)
-# ---------------------------
-def main_menu():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔥 Пройти бесплатный курс", callback_data="free_course")],
-        [InlineKeyboardButton("💪 Челленджи", callback_data="challenge_menu")],
-        [InlineKeyboardButton("📚 Платный курс", callback_data="paid_course")],
-        [InlineKeyboardButton("🍽 Меню питания", callback_data="nutrition_menu")],
-        [InlineKeyboardButton("👤 Мой кабинет", callback_data="my_cabinet")],
-        [InlineKeyboardButton("💡 Как заработать баллы", callback_data="earn_points")],
-        [InlineKeyboardButton("💰 Как потратить баллы", callback_data="spend_points")],
-        [InlineKeyboardButton("ℹ️ Обо мне", callback_data="about_me")],
-        [InlineKeyboardButton("🔗 Реферальная ссылка", callback_data="referral")],
-        [InlineKeyboardButton("🥗 КБЖУ", callback_data="kbju")]
-    ])
-
-# ---------------------------
-# Обработка входящих фото (чек для платного курса)
-# ---------------------------
-async def handle_receipt_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    if user_id in user_waiting_for_receipt:
-        trainer = user_waiting_for_receipt[user_id]
-        user_name = update.message.from_user.first_name
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Подтвердить", callback_data=f"confirm_payment_{user_id}_{trainer}")]
-        ])
+    user_name = update.message.from_user.first_name
+
+    # Бесплатный курс
+    if user_id in user_waiting_for_video:
+        current_day = user_waiting_for_video[user_id]
         await context.bot.send_message(
             chat_id=GROUP_ID,
-            text=f"Чек от {user_name} (ID: {user_id}) для платного курса тренера {trainer}. Подтвердите оплату."
+            text=f"Бесплатный курс. Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
         )
-        await context.bot.send_photo(
+        await context.bot.send_video(
             chat_id=GROUP_ID,
-            photo=update.message.photo[-1].file_id,
-            reply_markup=keyboard
+            video=update.message.video.file_id
         )
-        await update.message.reply_text("Чек отправлен на проверку. Ожидайте подтверждения.")
-    else:
-        await update.message.reply_text("Фото получено.")
+        user_reports_sent.setdefault(user_id, {})[current_day] = True
+        user_scores[user_id] += 60
+        trainer = context.user_data[user_id].get("instructor", "evgeniy")
+        trainer_scores[trainer][user_id] = trainer_scores[trainer].get(user_id, 0) + 60
+        del user_waiting_for_video[user_id]
+        if current_day < 5:
+            context.user_data[user_id]["current_day"] += 1
+            new_day = context.user_data[user_id]["current_day"]
+            user_waiting_for_video[user_id] = new_day
+            await update.message.reply_text(
+                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton(f"➡️ День {new_day}", callback_data="next_day")]
+                ])
+            )
+        else:
+            user_status[user_id] = statuses[1]
+            await update.message.reply_text(
+                f"Поздравляем! Вы завершили бесплатный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
+                reply_markup=main_menu()
+            )
+        return
+
+    # Платный курс
+    if user_id in user_waiting_for_paid_video:
+        current_day = user_waiting_for_paid_video[user_id]
+        await context.bot.send_message(
+            chat_id=GROUP_ID,
+            text=f"Платный курс. Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
+        )
+        await context.bot.send_video(
+            chat_id=GROUP_ID,
+            video=update.message.video.file_id
+        )
+        user_scores[user_id] += 30
+        del user_waiting_for_paid_video[user_id]
+        trainer = context.user_data[user_id].get("instructor", "evgeniy")
+        if user_id in user_paid_course_progress and trainer in user_paid_course_progress[user_id]:
+            user_paid_course_progress[user_id][trainer] = current_day + 1
+        if current_day < 5:
+            await update.message.reply_text(
+                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton(f"➡️ День {current_day + 1}", callback_data="next_paid_day")]
+                ])
+            )
+        else:
+            await update.message.reply_text(
+                f"Поздравляем! Вы завершили платный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
+                reply_markup=main_menu()
+            )
+        return
+
+    await update.message.reply_text("Я не жду видео от вас.")
 
 # ---------------------------
-# Прочий функционал
+# Функционал рефералов, личного кабинета, информации и т.д.
 # ---------------------------
 async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
