@@ -309,14 +309,14 @@ async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     context.user_data.setdefault(user_id, {})["program"] = "home" if query.data == "program_home" else "gym"
     context.user_data[user_id]["current_day"] = 1
-    # После установки программы сразу выводим бесплатный курс:
+    # После установки программы сразу выводим бесплатный курс
     await start_free_course(query.message, context, user_id)
 
 # ---------------------------
 # Функционал бесплатного курса (5 дней, 60 баллов за день)
 # ---------------------------
 async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-    # Допустим, бесплатный курс доступен только для женщин, выбравших "home"
+    # Бесплатный курс доступен только для женщин, выбравших "home"
     if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
         await message_obj.reply_text("Бесплатный курс пока доступен только для женщин, выбравших программу 'Дома'.", reply_markup=main_menu())
         return
@@ -374,10 +374,11 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-    trainer = context.user_data[user_id].get("instructor")
+    # Если по какой-то причине тренер не установлен, задаём значение по умолчанию
+    trainer = context.user_data.get(user_id, {}).get("instructor")
     if not trainer:
-        await query.message.reply_text("Сначала выберите тренера.", reply_markup=main_menu())
-        return
+        trainer = "evgeniy"
+        context.user_data.setdefault(user_id, {})["instructor"] = trainer
     if user_id not in user_paid_course_progress:
         user_paid_course_progress[user_id] = {}
     user_paid_course_progress[user_id][trainer] = 0  # курс не куплен
@@ -429,12 +430,11 @@ async def handle_confirm_payment(update: Update, context: ContextTypes.DEFAULT_T
             del user_waiting_for_receipt[user_id]
         if user_id in user_paid_course_progress:
             user_paid_course_progress[user_id][trainer] = 1
-        # Отправляем пользователю программу платного курса на 1 день
+        await query.message.reply_text("Оплата подтверждена!")
         program = paid_course_program.get(1, [])
         caption = ("📚 **Платный курс (1 день):**\n\n" +
                    "\n".join(program) +
                    "\n\nПосле выполнения видео-отчетов вам будут начисляться баллы.")
-        await query.message.reply_text("Оплата подтверждена!")
         await context.bot.send_message(chat_id=user_id, text=caption, reply_markup=main_menu())
     else:
         await query.message.reply_text("Ошибка подтверждения оплаты.")
