@@ -268,6 +268,7 @@ async def start_free_course(message_obj, context: ContextTypes.DEFAULT_TYPE, use
 
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    await query.answer()  # Обязательно отвечаем на callback!
     user_id = query.from_user.id
     if "gender" not in context.user_data[user_id] or "program" not in context.user_data[user_id]:
         gender_keyboard = InlineKeyboardMarkup([
