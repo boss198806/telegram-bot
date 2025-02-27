@@ -201,7 +201,7 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Ошибка в /start: {e}")
         await update.message.reply_text("Произошла ошибка. Пожалуйста, попробуйте позже.")
 
-async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT _TYPE):
+async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     data = query.data
     user_id = query.from_user.id
