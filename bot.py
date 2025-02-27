@@ -201,30 +201,29 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Ошибка в /start: {e}")
         await update.message.reply_text("Произошла ошибка. Пожалуйста, попробуйте позже.")
 
-async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT _TYPE):
     query = update.callback_query
     data = query.data
     user_id = query.from_user.id
     await query.answer()
     # Для instructor_1 оставляем отправку видео, для instructor_2 отправляем старое фото
-    elif data == "instructor_1":
+    if data == "instructor_1":
         ctx.user_data[user_id]["instructor"] = "evgeniy"
-        ctx.user_data[user_id].setdefault("current_day", 1)
         await ctx.bot.send_video(
-            chat_id=query.message.chat_id,
+            chat_id=query.m essage.chat_id,
             video="https://t.me/PRIVETSTVIEC/2",
             supports_streaming=True,
-            caption="🎥 Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: Евгений Курочкин",
+            caption="🎥 Привет! Я твой фитнес-ассистент!\nВы выбрали тренера:  Евгений Курочкин",
             reply_markup=main_menu()
         )
     elif data == "instructor_2":
         ctx.user_data[user_id]["instructor"] = "anastasiya"
-        await query.message.edit_text("Вы выбрали тренера: АНАСТАСИЯ 💫")
+        await query.m essage.edit_text("Вы выбрали тренера: АНАСТАСИЯ 💫")
         await ctx.bot.send_photo(
             chat_id=query.message.chat_id,
-            photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025-02-08_22-08-36.jpg?raw=true",
+            photo="https://github.com/boss198806/t elegram-bot/blob/main/photo_2025-02-08_22-08-36.jpg?raw=true",
             caption="📸 Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: АНАСТАСИЯ",
-            reply_markup=main_menu()
+            reply_markup=ma in_menu()
         )
     else:
         sel = "неизвестный тренер"
