@@ -207,7 +207,7 @@ async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT_
     user_id = query.from_user.id
     await query.answer()
     # Для instructor_1 оставляем отправку видео, для instructor_2 отправляем старое фото
-     elif data == "instructor_1":
+    elif data == "instructor_1":
         ctx.user_data[user_id]["instructor"] = "evgeniy"
         ctx.user_data[user_id].setdefault("current_day", 1)
         await ctx.bot.send_video(
