@@ -16,7 +16,7 @@ load_dotenv()
 
 # Access environment variables
 TOKEN = os.getenv("7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs")
-GROUP_ID = os.getenv("GROUP_ID-1002451371911
+GROUP_ID = os.getenv("-1002451371911")
 # Configure logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
