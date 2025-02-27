@@ -207,8 +207,9 @@ async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT_
     user_id = query.from_user.id
     await query.answer()
     # Для instructor_1 оставляем отправку видео, для instructor_2 отправляем старое фото
-    if data == "instructor_1":
+     elif data == "instructor_1":
         ctx.user_data[user_id]["instructor"] = "evgeniy"
+        ctx.user_data[user_id].setdefault("current_day", 1)
         await ctx.bot.send_video(
             chat_id=query.message.chat_id,
             video="https://t.me/PRIVETSTVIEC/2",
@@ -236,14 +237,15 @@ async def handle_instructor_selection(update: Update, ctx: ContextTypes.DEFAULT_
         await query.message.edit_text(f"Вы выбрали тренера: {sel}. Функционал пока не реализован 🚧\nВы будете перенаправлены в главное меню.", reply_markup=main_menu())
 
 # Меню питания, рефералка, челленджи и т.п.
-async def handle_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🍴 Купить меню питания за 300 баллов", callback_data="buy_nutrition_menu"),
-         InlineKeyboardButton("🔙 Назад", callback_data="back")]
-    ])
-    await query.message.reply_text("Меню питания доступно для покупки:", reply_markup=kb)
+    user_id = query.from_user.id
+    instructor = ctx.user_data[user_id].get("instructor", "evgeniy")
+    if ctx.user_data[user_id]['scores'].get(instructor, 0) >= 300:
+        ctx.user_data[user_id]['scores'][instructor] -= 300
+        await query.message.reply_text("✅ Покупка успешна! Меню: https://t.me/MENUKURO4KIN/2", reply_markup=main_menu())
+    else:
+        await query.message.reply_text("⚠️ Недостаточно баллов"
 
 async def handle_buy_nutrition_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -362,9 +364,15 @@ async def confirm_payment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user_status[user_id] = statuses[2]
     if user_id in user_waiting_for_receipt:
         del user_waiting_for_receipt[user_id]
+    # Списание 30% от баланса, но не более 300
+    user_score = ctx.user_data[user_id]['scores'].get('evgeniy', 0)
+    discount = min(int(user_score * 0.3), 300)
+    ctx.user_data[user_id]['scores']['evgeniy'] -= discount
+    await ctx.bot.send_message(chat_id=user_id, text=f"✅ Скидка {discount*2} руб. Баланс: {ctx.user_data[user_id]['scores']['evgeniy']}")    
     await ctx.bot.send_message(chat_id=user_id, text="✅ Оплата подтверждена! Вам открыт доступ к платному курсу. 🎉")
     if ctx.user_data[user_id].get("instructor") == "evgeniy":
         kb = InlineKeyboardMarkup([
+
             [InlineKeyboardButton("👨 Мужчина", callback_data="paid_gender_male"),
              InlineKeyboardButton("👩 Женщина", callback_data="paid_gender_female")]
         ])
