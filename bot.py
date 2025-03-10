@@ -54,11 +54,16 @@ def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     suffix = "🏠" if program == "home" else "🏋️"
     return f"{prefix}{suffix} Отправить отчет"
 
+def get_instructor_data(instructor):
+    if instructor == "evgeniy":
+        return user_scores_evgeniy, user_reports_sent_evgeniy, user_waiting_for_video_evgeniy, user_waiting_for_challenge_video_evgeniy
+    else:
+        return user_scores_anastasiya, user_reports_sent_anastasiya, user_waiting_for_video_anastasiya, user_waiting_for_challenge_video_anastasiya
+
 async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int):
     instructor = context.user_data[user_id].get("instructor")
-    user_scores, user_reports_sent, user_waiting_for_video = get_instructor_data(instructor)
+    user_scores, user_reports_sent, user_waiting_for_video, _ = get_instructor_data(instructor)
 
-    # Установим текущий день для каждого инструктора отдельно
     current_day_key = f"current_day_{instructor}"
     if current_day_key not in context.user_data[user_id]:
         context.user_data[user_id][current_day_key] = 1
@@ -116,7 +121,6 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
         [InlineKeyboardButton(report_button_text, callback_data=f"send_report_day_{current_day}")]
     ])
 
-    # Убедимся, что текущий день обновляется корректно
     if current_day < 5:
         next_day = current_day + 1
         keyboard.inline_keyboard.append([InlineKeyboardButton(f"➡️ День {next_day}", callback_data=f"next_day_{next_day}")])
@@ -141,7 +145,7 @@ async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_id = query.from_user.id
     current_day = int(query.data.split("_")[-1])
     instructor = context.user_data[user_id].get("instructor")
-    user_reports_sent, user_waiting_for_video = get_instructor_data(instructor)[1:3]
+    user_reports_sent, user_waiting_for_video, _, _ = get_instructor_data(instructor)[1:]
 
     current_day_key = f"current_day_{instructor}"
 
