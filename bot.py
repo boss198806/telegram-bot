@@ -34,7 +34,6 @@ user_challenges_evgeniy = {}
 user_challenges_anastasiya = {}
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
-# 1. Вспомогательные функции
 def main_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔥 Пройти бесплатный курс", callback_data="free_course")],
@@ -55,21 +54,10 @@ def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     suffix = "🏠" if program == "home" else "🏋️"
     return f"{prefix}{suffix} Отправить отчет"
 
-# 2. Функции бесплатного курса
-
-# Отправка 5-дневной тренировки (бесплатного курса)
 async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int):
     instructor = context.user_data[user_id].get("instructor")
-    if instructor == "evgeniy":
-        user_scores = user_scores_evgeniy
-        user_reports_sent = user_reports_sent_evgeniy
-        user_waiting_for_video = user_waiting_for_video_evgeniy
-    else:
-        user_scores = user_scores_anastasiya
-        user_reports_sent = user_reports_sent_anastasiya
-        user_waiting_for_video = user_waiting_for_video_anastasiya
+    user_scores, user_reports_sent, user_waiting_for_video = get_instructor_data(instructor)
 
-    # Бесплатная программа доступна только при выборе: Женщина + программа "Дома"
     if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
         await message.reply_text("Пока в разработке", reply_markup=main_menu())
         return
@@ -135,6 +123,13 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
             "Ошибка: изображение не найдено. Продолжайте без фото.",
             reply_markup=keyboard,
         )
+
+def get_instructor_data(instructor):
+    if instructor == "evgeniy":
+        return user_scores_evgeniy, user_reports_sent_evgeniy, user_waiting_for_video_evgeniy
+    else:
+        return user_scores_anastasiya, user_reports_sent_anastasiya, user_waiting_for_video_anastasiya
+
 
 # Обработчик отправки отчета
 async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
