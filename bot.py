@@ -115,6 +115,12 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(report_button_text, callback_data=f"send_report_day_{current_day}")]
     ])
+
+    # Убедимся, что текущий день обновляется корректно
+    if current_day < 5:
+        next_day = current_day + 1
+        keyboard.inline_keyboard.append([InlineKeyboardButton(f"➡️ День {next_day}", callback_data=f"next_day_{next_day}")])
+
     try:
         await context.bot.send_photo(
             chat_id=message.chat_id,
@@ -130,47 +136,29 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
             reply_markup=keyboard,
         )
 
-def get_instructor_data(instructor):
-    if instructor == "evgeniy":
-        return user_scores_evgeniy, user_reports_sent_evgeniy, user_waiting_for_video_evgeniy
-    else:
-        return user_scores_anastasiya, user_reports_sent_anastasiya, user_waiting_for_video_anastasiya
-
-
-# Обработчик отправки отчета
 async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
     current_day = int(query.data.split("_")[-1])
     instructor = context.user_data[user_id].get("instructor")
-    if instructor == "evgeniy":
-        user_reports_sent = user_reports_sent_evgeniy
-        user_waiting_for_video = user_waiting_for_video_evgeniy
-    else:
-        user_reports_sent = user_reports_sent_anastasiya
-        user_waiting_for_video = user_waiting_for_video_anastasiya
+    user_reports_sent, user_waiting_for_video = get_instructor_data(instructor)[1:3]
+
+    current_day_key = f"current_day_{instructor}"
 
     if user_reports_sent.get(user_id, {}).get(current_day):
         await query.message.reply_text(f"Вы уже отправили отчет за день {current_day}.")
         return
+
     user_waiting_for_video[user_id] = current_day
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день.")
 
-# Обработчик получения видео-отчета
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
     instructor = context.user_data[user_id].get("instructor")
-    if instructor == "evgeniy":
-        user_scores = user_scores_evgeniy
-        user_reports_sent = user_reports_sent_evgeniy
-        user_waiting_for_video = user_waiting_for_video_evgeniy
-        user_waiting_for_challenge_video = user_waiting_for_challenge_video_evgeniy
-    else:
-        user_scores = user_scores_anastasiya
-        user_reports_sent = user_reports_sent_anastasiya
-        user_waiting_for_video = user_waiting_for_video_anastasiya
-        user_waiting_for_challenge_video = user_waiting_for_challenge_video_anastasiya
+    user_scores, user_reports_sent, user_waiting_for_video, user_waiting_for_challenge_video = get_instructor_data(instructor)
+
+    current_day_key = f"current_day_{instructor}"
 
     if user_id in user_waiting_for_video:
         current_day = user_waiting_for_video[user_id]
@@ -185,9 +173,10 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_reports_sent.setdefault(user_id, {})[current_day] = True
         user_scores[user_id] += 60
         del user_waiting_for_video[user_id]
+
         if current_day < 5:
-            context.user_data[user_id]["current_day"] += 1
-            new_day = context.user_data[user_id]["current_day"]
+            context.user_data[user_id][current_day_key] += 1
+            new_day = context.user_data[user_id][current_day_key]
             user_waiting_for_video[user_id] = new_day
             await update.message.reply_text(
                 f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.\nГотовы к следующему дню ({new_day})?",
