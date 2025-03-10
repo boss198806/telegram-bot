@@ -58,11 +58,16 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
     instructor = context.user_data[user_id].get("instructor")
     user_scores, user_reports_sent, user_waiting_for_video = get_instructor_data(instructor)
 
+    # Убедимся, что текущий день установлен на 1 при начале курса
+    if "current_day" not in context.user_data[user_id]:
+        context.user_data[user_id]["current_day"] = 1
+
+    current_day = context.user_data[user_id]["current_day"]
+
     if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
         await message.reply_text("Пока в разработке", reply_markup=main_menu())
         return
 
-    current_day = context.user_data[user_id].get("current_day", 1)
     if current_day > 5:
         await message.reply_text("Вы завершили курс! 🎉", reply_markup=main_menu())
         return
