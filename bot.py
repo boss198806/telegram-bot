@@ -20,7 +20,7 @@ TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"
 GROUP_ID = "-1002451371911"
 
 # Глобальные словари для хранения данных
-user_scores = {}
+user_scores = {}  # Хранит баллы с учетом тренера
 user_status = {}
 user_reports_sent = {}  # Хранит отчеты с учетом тренера
 user_waiting_for_video = {}
@@ -154,7 +154,9 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         # Сохраняем отчет с учетом тренера
         user_reports_sent.setdefault(user_id, {})[f"{instructor}_day_{current_day}"] = True
-        user_scores[user_id] += 60
+        # Начисляем баллы с учетом тренера
+        user_scores.setdefault(user_id, {}).setdefault(instructor, 0)
+        user_scores[user_id][instructor] += 60
         del user_waiting_for_video[user_id]
 
         if current_day < 5:
@@ -162,7 +164,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             new_day = context.user_data[user_id]["current_day"]
             user_waiting_for_video[user_id] = new_day
             await update.message.reply_text(
-                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.\nГотовы к следующему дню ({new_day})?",
+                f"Отчет за день {current_day} принят! 🎉\nВаши баллы у {instructor}: {user_scores[user_id][instructor]}.\nГотовы к следующему дню ({new_day})?",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton(f"➡️ День {new_day}", callback_data="next_day")]
                 ]),
@@ -170,7 +172,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             user_status[user_id] = statuses[1]
             await update.message.reply_text(
-                f"Поздравляем! Вы завершили бесплатный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
+                f"Поздравляем! Вы завершили бесплатный курс! 🎉\nВаши баллы у {instructor}: {user_scores[user_id][instructor]}.",
                 reply_markup=main_menu(),
             )
     elif user_id in user_waiting_for_challenge_video:
@@ -182,13 +184,16 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=GROUP_ID,
             video=update.message.video.file_id
         )
-        user_scores[user_id] += 60
+        # Начисляем баллы с учетом тренера
+        user_scores.setdefault(user_id, {}).setdefault(instructor, 0)
+        user_scores[user_id][instructor] += 60
         del user_waiting_for_challenge_video[user_id]
         await update.message.reply_text(
-            f"Отчет за челлендж принят! 🎉\nВаши баллы: {user_scores[user_id]}."
+            f"Отчет за челлендж принят! 🎉\nВаши баллы у {instructor}: {user_scores[user_id][instructor]}."
         )
     else:
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
+
 # --- Обработчики выбора пола и программы для бесплатного курса ---
 
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -232,7 +237,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 referrer_id = int(referrer_id_str)
                 if referrer_id != user_id:
-                    user_scores[referrer_id] = user_scores.get(referrer_id, 0) + 100
+                    instructor = context.user_data[referrer_id].get("instructor", "evgeniy")
+                    user_scores.setdefault(referrer_id, {}).setdefault(instructor, 0)
+                    user_scores[referrer_id][instructor] += 100
                     try:
                         await context.bot.send_message(
                             chat_id=referrer_id,
@@ -244,7 +251,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
 
         context.user_data.setdefault(user_id, {"current_day": 1})
-        user_scores[user_id] = user_scores.get(user_id, 0)
         user_status[user_id] = user_status.get(user_id, statuses[0])
 
         # Выбор инструктора (5 кнопок)
