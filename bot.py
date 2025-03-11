@@ -22,7 +22,7 @@ GROUP_ID = "-1002451371911"
 # Глобальные словари для хранения данных
 user_scores = {}
 user_status = {}
-user_reports_sent = {}
+user_reports_sent = {}  # Хранит отчеты с учетом тренера
 user_waiting_for_video = {}
 user_waiting_for_challenge_video = {}
 user_waiting_for_receipt = {}
@@ -127,9 +127,12 @@ async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_id = query.from_user.id
     current_day = int(query.data.split("_")[-1])
     instructor = context.user_data[user_id].get("instructor", "evgeniy")
-    if user_reports_sent.get(user_id, {}).get(current_day):
+
+    # Проверяем, отправлял ли пользователь отчет за текущий день у данного тренера
+    if user_reports_sent.get(user_id, {}).get(f"{instructor}_day_{current_day}"):
         await query.message.reply_text(f"Вы уже отправили отчет за день {current_day}.")
         return
+
     user_waiting_for_video[user_id] = current_day
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день.")
 
@@ -138,6 +141,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
     instructor = context.user_data[user_id].get("instructor", "evgeniy")
+
     if user_id in user_waiting_for_video:
         current_day = user_waiting_for_video[user_id]
         await context.bot.send_message(
@@ -148,9 +152,11 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=GROUP_ID,
             video=update.message.video.file_id
         )
-        user_reports_sent.setdefault(user_id, {})[current_day] = True
+        # Сохраняем отчет с учетом тренера
+        user_reports_sent.setdefault(user_id, {})[f"{instructor}_day_{current_day}"] = True
         user_scores[user_id] += 60
         del user_waiting_for_video[user_id]
+
         if current_day < 5:
             context.user_data[user_id]["current_day"] += 1
             new_day = context.user_data[user_id]["current_day"]
@@ -183,7 +189,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     else:
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
-
 # --- Обработчики выбора пола и программы для бесплатного курса ---
 
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
