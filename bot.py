@@ -266,6 +266,7 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     await query.answer()
     if data == "instructor_1":
         context.user_data[user_id]["instructor"] = "evgeniy"
+        context.user_data[user_id]["current_day"] = 1  # Обнуляем текущий день курса
         await query.message.edit_text("Вы выбрали тренера: Евгений Курочкин")
         # Отправляем видео с поддержкой потокового воспроизведения
         await context.bot.send_video(
@@ -277,6 +278,7 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
         )
     elif data == "instructor_2":
         context.user_data[user_id]["instructor"] = "anastasiya"
+        context.user_data[user_id]["current_day"] = 1  # Обнуляем текущий день курса
         await query.message.edit_text("Вы выбрали тренера: АНАСТАСИЯ")
         await context.bot.send_photo(
             chat_id=query.message.chat_id,
@@ -293,6 +295,7 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
             selected_name = "Тренер 5"
         else:
             selected_name = "неизвестный тренер"
+        context.user_data[user_id]["current_day"] = 1  # Обнуляем текущий день курса
         await query.message.edit_text(
             f"Вы выбрали тренера: {selected_name}. Функционал пока не реализован.\nВы будете перенаправлены в главное меню.",
             reply_markup=main_menu()
