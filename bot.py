@@ -162,13 +162,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if current_day < 5:
             context.user_data[user_id]["current_day"] += 1
             new_day = context.user_data[user_id]["current_day"]
-            user_waiting_for_video[user_id] = new_day
-            await update.message.reply_text(
-                f"Отчет за день {current_day} принят! 🎉\nВаши баллы у {instructor}: {user_scores[user_id][instructor]}.\nГотовы к следующему дню ({new_day})?",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton(f"➡️ День {new_day}", callback_data="next_day")]
-                ]),
-            )
+            await start_free_course(update.message, context, user_id)  # Переходим к следующему дню
         else:
             user_status[user_id] = statuses[1]
             await update.message.reply_text(
@@ -417,6 +411,32 @@ async def send_challenge_task(message: Update, user_id: int):
         reply_markup=keyboard
     )
 
+async def handle_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    current_day = context.user_data[user_id].get("current_day", 1)
+    if current_day <= 5:
+        await start_free_course(query.message, context, user_id)
+    else:
+        await query.message.reply_text("Вы уже завершили курс!", reply_markup=main_menu())
+
+async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    context.user_data[user_id]["gender"] = "male" if query.data == "gender_male" else "female"
+    program_keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
+         InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]
+    ])
+    await query.message.reply_text("Выберите программу:", reply_markup=program_keyboard)
+
+async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    context.user_data[user_id]["program"] = "home" if query.data == "program_home" else "gym"
+    context.user_data[user_id]["current_day"] = 1  # Обнуляем текущий день курса
+    await start_free_course(query.message, context, user_id)
+    
 async def handle_challenge_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
