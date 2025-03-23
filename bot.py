@@ -122,6 +122,7 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
         )
 
 # Обработчик отправки отчета
+# Обработчик отправки отчета
 async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -188,8 +189,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.")
 
-# --- Обработчики выбора пола и программы для бесплатного курса ---
-
+# Обработчик выбора пола и программы для бесплатного курса
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -203,6 +203,17 @@ async def handle_free_course_callback(update: Update, context: ContextTypes.DEFA
             return
     await start_free_course(query.message, context, user_id)
 
+# Обработчик перехода к следующему дню
+async def handle_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    current_day = context.user_data[user_id].get("current_day", 1)
+    if current_day <= 5:
+        await start_free_course(query.message, context, user_id)
+    else:
+        await query.message.reply_text("Вы уже завершили курс!", reply_markup=main_menu())
+
+# Обработчик выбора пола
 async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -213,11 +224,12 @@ async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
     await query.message.reply_text("Выберите программу:", reply_markup=program_keyboard)
 
+# Обработчик выбора программы
 async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
     context.user_data[user_id]["program"] = "home" if query.data == "program_home" else "gym"
-    context.user_data[user_id]["current_day"] = 1
+    context.user_data[user_id]["current_day"] = 1  # Обнуляем текущий день курса
     await start_free_course(query.message, context, user_id)
 
 # --- Функции для обработки команды /start и выбора инструктора ---
