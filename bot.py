@@ -384,7 +384,6 @@ async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.message.reply_text("Недостаточно баллов для покупки доступа!")
 
-
 async def send_challenge_task(message: Update, user_id: int):
     instructor = context.user_data[user_id].get("instructor", "evgeniy")
     current_day = user_challenges[user_id][instructor]["current_day"]
@@ -415,19 +414,15 @@ async def send_challenge_task(message: Update, user_id: int):
         ],
     }.get(current_day, [])
     caption = f"💪 **Челлендж: День {current_day}** 💪\n\n" + "\n".join(exercises)
-    if current_day < 5:
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]
-        ])
-    else:
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")]
-        ])
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Отправить отчет", callback_data=f"send_challenge_report_day_{current_day}")]
+    ])
     await message.reply_text(
         caption,
         parse_mode="Markdown",
         reply_markup=keyboard
     )
+
 
 async def handle_challenge_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -538,7 +533,6 @@ async def start_paid_course(user_id: int, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown",
         reply_markup=keyboard,
     )
-
 
 async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
