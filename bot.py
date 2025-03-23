@@ -353,9 +353,11 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    if user_challenges.get(user_id):
+    instructor = context.user_data[user_id].get("instructor", "evgeniy")
+
+    if user_challenges.get(user_id, {}).get(instructor):
         await send_challenge_task(query.message, user_id)
-    elif user_scores.get(user_id, 0) >= 300:
+    elif user_scores.get(user_id, {}).get(instructor, 0) >= 300:
         buttons = [
             [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge")],
             [InlineKeyboardButton("Назад", callback_data="back")],
@@ -366,22 +368,25 @@ async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     else:
         await query.message.reply_text(
-            f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(user_id, 0)} баллов.\nПродолжайте тренировки!"
+            f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(user_id, {}).get(instructor, 0)} баллов.\nПродолжайте тренировки!"
         )
 
 async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    if user_scores.get(user_id, 0) >= 300:
-        user_scores[user_id] -= 300
-        user_challenges[user_id] = {"current_day": 1}
+    instructor = context.user_data[user_id].get("instructor", "evgeniy")
+
+    if user_scores.get(user_id, {}).get(instructor, 0) >= 300:
+        user_scores[user_id][instructor] -= 300
+        user_challenges.setdefault(user_id, {})[instructor] = {"current_day": 1}
         await query.message.reply_text("✅ Доступ к челленджам открыт!")
         await send_challenge_task(query.message, user_id)
     else:
         await query.message.reply_text("Недостаточно баллов для покупки доступа!")
 
 async def send_challenge_task(message: Update, user_id: int):
-    current_day = user_challenges[user_id]["current_day"]
+    instructor = context.user_data[user_id].get("instructor", "evgeniy")
+    current_day = user_challenges[user_id][instructor]["current_day"]
     exercises = {
         1: [
             "1️⃣ Выпады назад 40 раз [Видео](https://t.me/c/2241417709/155/156)",
@@ -423,50 +428,28 @@ async def send_challenge_task(message: Update, user_id: int):
         reply_markup=keyboard
     )
 
-async def handle_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    current_day = context.user_data[user_id].get("current_day", 1)
-    if current_day <= 5:
-        await start_free_course(query.message, context, user_id)
-    else:
-        await query.message.reply_text("Вы уже завершили курс!", reply_markup=main_menu())
-
-async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    context.user_data[user_id]["gender"] = "male" if query.data == "gender_male" else "female"
-    program_keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🏠 Дома", callback_data="program_home"),
-         InlineKeyboardButton("🏋️ В зале", callback_data="program_gym")]
-    ])
-    await query.message.reply_text("Выберите программу:", reply_markup=program_keyboard)
-
-async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    context.user_data[user_id]["program"] = "home" if query.data == "program_home" else "gym"
-    context.user_data[user_id]["current_day"] = 1  # Обнуляем текущий день курса
-    await start_free_course(query.message, context, user_id)
-    
 async def handle_challenge_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    if user_id not in user_challenges:
-        await query.answer("Сначала купите челлендж!")
-        return
-    current_day = user_challenges[user_id]["current_day"]
-    if current_day < 5:
-        user_challenges[user_id]["current_day"] += 1
-        await send_challenge_task(query.message, user_id)
+    instructor = context.user_data[user_id].get("instructor", "evgeniy")
+
+    if user_challenges.get(user_id, {}).get(instructor):
+        current_day = user_challenges[user_id][instructor]["current_day"]
+        if current_day < 5:
+            user_challenges[user_id][instructor]["current_day"] += 1
+            await send_challenge_task(query.message, user_id)
+        else:
+            await query.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
+            del user_challenges[user_id][instructor]
     else:
-        await query.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
-        del user_challenges[user_id]
+        await query.answer("Сначала купите челлендж!")
+
 
 async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    discount = min(user_scores.get(user_id, 0) * 2, 600)
+    instructor = context.user_data[user_id].get("instructor", "evgeniy")
+    discount = min(user_scores.get(user_id, {}).get(instructor, 0) * 2, 600)
     final_price = 2000 - discount
     await query.message.reply_text(
         f"📚 **Платный курс** 📚\n\n"
