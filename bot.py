@@ -380,9 +380,10 @@ async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_scores[user_id][instructor] -= 300
         user_challenges.setdefault(user_id, {})[instructor] = {"current_day": 1}
         await query.message.reply_text("✅ Доступ к челленджам открыт!")
-        await send_challenge_task(query.message, user_id)
+        await send_challenge_task(query.message, user_id)  # Сразу отправляем первый день
     else:
         await query.message.reply_text("Недостаточно баллов для покупки доступа!")
+
 
 async def send_challenge_task(message: Update, user_id: int):
     instructor = context.user_data[user_id].get("instructor", "evgeniy")
@@ -496,6 +497,48 @@ async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=user_id,
         text="Оплата подтверждена! Вам открыт доступ к платному курсу. 🎉",
     )
+    await start_paid_course(user_id, context)  # Отправляем первый день платного курса
+
+async def start_paid_course(user_id: int, context: ContextTypes.DEFAULT_TYPE):
+    # Логика отправки первого дня платного курса
+    current_day = 1
+    exercises = {
+        1: [
+            "1️⃣ Упражнение 1",
+            "2️⃣ Упражнение 2",
+            "3️⃣ Упражнение 3",
+        ],
+        2: [
+            "1️⃣ Упражнение 4",
+            "2️⃣ Упражнение 5",
+            "3️⃣ Упражнение 6",
+        ],
+        3: [
+            "1️⃣ Упражнение 7",
+            "2️⃣ Упражнение 8",
+        ],
+        4: [
+            "1️⃣ Упражнение 9",
+            "2️⃣ Упражнение 10",
+            "3️⃣ Упражнение 11",
+        ],
+        5: [
+            "1️⃣ Упражнение 12",
+            "2️⃣ Упражнение 13",
+            "3️⃣ Упражнение 14",
+        ],
+    }.get(current_day, [])
+    caption = f"📚 **Платный курс: День {current_day}** 📚\n\n" + "\n".join(exercises)
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Отправить отчет", callback_data=f"send_paid_report_day_{current_day}")]
+    ])
+    await context.bot.send_message(
+        chat_id=user_id,
+        text=caption,
+        parse_mode="Markdown",
+        reply_markup=keyboard,
+    )
+
 
 async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
