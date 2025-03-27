@@ -26,8 +26,8 @@ user_reports_sent = {}
 user_waiting_for_video = {}
 user_waiting_for_challenge_video = {}
 user_waiting_for_receipt = {}
-user_challenges = {}
-user_paid_course = {}
+user_challenges = {}  # {user_id: {instructor: {"current_day": int}}}
+user_paid_course = {}  # {user_id: {instructor: {"current_day": int}}}
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
 # Вспомогательные функции
@@ -204,25 +204,23 @@ async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data[user_id]["program"] = "home" if query.data == "program_home" else "gym"
     instructor = context.user_data[user_id].get("instructor")
     await start_free_course(query.message, context, user_id, instructor)
-    
+
 async def handle_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    instructor = query.data.split("_")[-1]  # Извлекаем имя тренера, например, "evgeniy"
+    instructor = query.data.split("_")[-1]  # Извлекаем имя тренера
     user_id = query.from_user.id
-    
-    # Проверяем, начал ли пользователь курс у этого тренера
     if instructor not in context.user_data.get(user_id, {}).get("free_course", {}):
         await query.message.reply_text("Вы не начали курс у этого тренера.", reply_markup=main_menu())
         return
-    
-    # Запускаем следующий день для указанного тренера
     await start_free_course(query.message, context, user_id, instructor)
-    await query.answer()  # Подтверждаем обработку callback
+    await query.answer()
 
 # Функции для платного курса
-async def start_paid_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-    instructor = user_paid_course[user_id]["instructor"]
-    current_day = user_paid_course[user_id]["current_day"]
+async def start_paid_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int, instructor: str):
+    if instructor not in user_paid_course.get(user_id, {}):
+        await message.reply_text("У вас нет доступа к платному курсу у этого тренера.", reply_markup=main_menu())
+        return
+    current_day = user_paid_course[user_id][instructor]["current_day"]
     if current_day > 5:
         await message.reply_text(f"Вы завершили платный курс у тренера {instructor}! 🎉", reply_markup=main_menu())
         return
@@ -269,9 +267,11 @@ async def handle_send_paid_report(update: Update, context: ContextTypes.DEFAULT_
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день платного курса.")
 
 # Функции для челленджей
-async def send_challenge_task(message: Update, user_id: int, context: ContextTypes.DEFAULT_TYPE):
-    instructor = user_challenges[user_id]["instructor"]
-    current_day = user_challenges[user_id]["current_day"]
+async def send_challenge_task(message: Update, user_id: int, context: ContextTypes.DEFAULT_TYPE, instructor: str):
+    if instructor not in user_challenges.get(user_id, {}):
+        await message.reply_text("У вас нет доступа к челленджу у этого тренера.", reply_markup=main_menu())
+        return
+    current_day = user_challenges[user_id][instructor].get("current_day", 1)
     if current_day > 5:
         await message.reply_text(f"Вы завершили челлендж у тренера {instructor}! 🎉", reply_markup=main_menu())
         return
@@ -299,7 +299,7 @@ async def send_challenge_task(message: Update, user_id: int, context: ContextTyp
         [InlineKeyboardButton("📹 Отправить отчет", callback_data=f"send_challenge_report_day_{current_day}_{instructor}")]
     ]
     if current_day < 5:
-        buttons.append([InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")])
+        buttons.append([InlineKeyboardButton("➡️ Следующий день", callback_data=f"challenge_next_{instructor}")])
     else:
         buttons.append([InlineKeyboardButton("🔙 Вернуться в главное меню", callback_data="back")])
     keyboard = InlineKeyboardMarkup(buttons)
@@ -324,18 +324,18 @@ async def handle_send_challenge_report(update: Update, context: ContextTypes.DEF
 async def handle_challenge_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    if user_id not in user_challenges:
-        await query.answer("Сначала купите челлендж!")
+    instructor = query.data.split("_")[-1]
+    if instructor not in user_challenges.get(user_id, {}):
+        await query.answer("Сначала купите челлендж у этого тренера!")
         return
-    current_day = user_challenges[user_id]["current_day"]
+    current_day = user_challenges[user_id][instructor].get("current_day", 1)
     if current_day < 5:
-        user_challenges[user_id]["current_day"] += 1
-        await send_challenge_task(query.message, user_id, context)
+        user_challenges[user_id][instructor]["current_day"] += 1
+        await send_challenge_task(query.message, user_id, context, instructor)
     else:
-        await query.message.reply_text("Поздравляем, вы завершили челлендж!", reply_markup=main_menu())
+        await query.message.reply_text(f"Поздравляем, вы завершили челлендж у тренера {instructor}!", reply_markup=main_menu())
         if user_id in user_waiting_for_challenge_video:
-            del user_waiting_for_challenge_video[user_id]
-        del user_challenges[user_id]
+            del user_challenges[user_id][instructor]
 
 # Обработка команды /start и выбора тренера
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -453,11 +453,11 @@ async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
     instructor = context.user_data[user_id].get("instructor")
-    if user_challenges.get(user_id):
-        await send_challenge_task(query.message, user_id, context)
+    if user_challenges.get(user_id, {}).get(instructor):
+        await send_challenge_task(query.message, user_id, context, instructor)
     elif user_scores.get(user_id, {}).get(instructor, 0) >= 300:
         buttons = [
-            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge")],
+            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data=f"buy_challenge_{instructor}")],
             [InlineKeyboardButton("Назад", callback_data="back")],
         ]
         await query.message.reply_text(
@@ -472,20 +472,19 @@ async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    instructor = context.user_data[user_id].get("instructor")
+    instructor = query.data.split("_")[-1]
     if user_scores.get(user_id, {}).get(instructor, 0) >= 300:
         user_scores[user_id][instructor] -= 300
-        user_challenges[user_id] = {"current_day": 1, "instructor": instructor}
+        user_challenges.setdefault(user_id, {})[instructor] = {"current_day": 1}
         await query.message.reply_text(f"✅ Доступ к челленджам у тренера {instructor} открыт!")
-        await send_challenge_task(query.message, user_id, context)
+        await send_challenge_task(query.message, user_id, context, instructor)
     else:
         await query.message.reply_text(f"Недостаточно баллов у тренера {instructor} для покупки доступа!")
 
 async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    instructor = context.user_data[user_id].get("instructor")  # Предполагается, что вы храните тренера в context
-    # Рассчитываем стоимость и скидку (пример)
+    instructor = context.user_data[user_id].get("instructor")
     discount = min(user_scores.get(user_id, {}).get(instructor, 0) * 2, 600)
     final_price = 2000 - discount
     await query.message.reply_text(
@@ -496,49 +495,55 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"Переведите сумму на карту: 89236950304 (Яндекс Банк).\n"
         f"После оплаты отправьте чек для проверки.",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]
-        ])
+            [InlineKeyboardButton("Отправить чек", callback_data=f"send_receipt_{instructor}")]
+        ]),
     )
-    user_waiting_for_receipt[user_id] = True  # Устанавливаем флаг ожидания чека
+
+async def handle_send_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    instructor = query.data.split("_")[-1]
+    context.user_data[user_id]["current_instructor_for_receipt"] = instructor
+    user_waiting_for_receipt[user_id] = True
+    await query.message.reply_text("Пожалуйста, отправьте фото чека для проверки.")
 
 async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
-    # Проверяем, ждёт ли бот чек от этого пользователя
     if user_id not in user_waiting_for_receipt or not user_waiting_for_receipt[user_id]:
-        await update.message.reply_text("Я не жду чек от вас. Пожалуйста, выберите платный курс и отправьте чек.")
+        await update.message.reply_text("Я не жду чек от вас. Пожалуйста, выберите платный курс и нажмите 'Отправить чек'.")
         return
-    # Проверяем, что пользователь отправил фото
     if not update.message.photo:
         await update.message.reply_text("Пожалуйста, отправьте фото чека.")
         return
-    # Получаем file_id фото чека
+    instructor = context.user_data[user_id].get("current_instructor_for_receipt")
+    await context.bot.send_message(
+        chat_id=GROUP_ID,
+        text=f"Чек от {user_name} (ID: {user_id}) для тренера {instructor}. Подтвердите оплату.",
+    )
     photo_file_id = update.message.photo[-1].file_id
-    # Отправляем чек в группу для проверки
     await context.bot.send_photo(
-        chat_id=GROUP_ID,  # Замените на ID вашей группы
+        chat_id=GROUP_ID,
         photo=photo_file_id,
-        caption=f"Чек от {user_name} (ID: {user_id}). Подтвердите оплату.",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Подтвердить", callback_data=f"confirm_payment_{user_id}")]
-        ])
+            [InlineKeyboardButton("Подтвердить", callback_data=f"confirm_payment_{user_id}_{instructor}")]
+        ]),
     )
     await update.message.reply_text("Чек отправлен на проверку. Ожидайте подтверждения.")
-    # Сбрасываем флаг ожидания чека
     user_waiting_for_receipt[user_id] = False
 
 async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    user_id = int(query.data.split("_")[-1])
-    instructor = context.user_data[user_id].get("instructor")
+    data = query.data.split("_")
+    user_id = int(data[2])
+    instructor = data[3]
     user_status[user_id] = statuses[2]
-    del user_waiting_for_receipt[user_id]
-    user_paid_course[user_id] = {"current_day": 1, "instructor": instructor}
+    user_paid_course.setdefault(user_id, {})[instructor] = {"current_day": 1}
     await context.bot.send_message(
         chat_id=user_id,
         text=f"Оплата подтверждена! Вам открыт доступ к платному курсу у тренера {instructor}. 🎉",
     )
-    await start_paid_course(query.message, context, user_id)
+    await start_paid_course(query.message, context, user_id, instructor)
 
 async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -641,7 +646,7 @@ def main():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern="^instructor_"))
-    application.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern="^(free_course|next_day)$"))
+    application.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern="^free_course$"))
     application.add_handler(CallbackQueryHandler(handle_next_day, pattern=r"^next_day_(\w+)$"))
     application.add_handler(CallbackQueryHandler(handle_gender, pattern="^gender_"))
     application.add_handler(CallbackQueryHandler(handle_program, pattern="^program_"))
@@ -649,9 +654,10 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_send_paid_report, pattern=r"send_paid_report_day_(\d+)_(\w+)"))
     application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"send_challenge_report_day_(\d+)_(\w+)"))
     application.add_handler(CallbackQueryHandler(handle_challenges, pattern="^challenge_menu$"))
-    application.add_handler(CallbackQueryHandler(buy_challenge, pattern="^buy_challenge$"))
+    application.add_handler(CallbackQueryHandler(buy_challenge, pattern=r"^buy_challenge_(\w+)$"))
     application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="^paid_course$"))
-    application.add_handler(CallbackQueryHandler(confirm_payment, pattern="^confirm_payment_"))
+    application.add_handler(CallbackQueryHandler(handle_send_receipt, pattern=r"send_receipt_(\w+)"))
+    application.add_handler(CallbackQueryHandler(confirm_payment, pattern=r"confirm_payment_\d+_\w+"))
     application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="^my_cabinet$"))
     application.add_handler(CallbackQueryHandler(handle_about_me, pattern="^about_me$"))
     application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="^earn_points$"))
@@ -659,7 +665,7 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="^nutrition_menu$"))
     application.add_handler(CallbackQueryHandler(handle_buy_nutrition_menu, pattern="^buy_nutrition_menu$"))
     application.add_handler(CallbackQueryHandler(handle_referral, pattern="^referral$"))
-    application.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern="^challenge_next$"))
+    application.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern=r"^challenge_next_(\w+)$"))
     application.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
 
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
