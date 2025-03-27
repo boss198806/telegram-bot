@@ -204,6 +204,20 @@ async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data[user_id]["program"] = "home" if query.data == "program_home" else "gym"
     instructor = context.user_data[user_id].get("instructor")
     await start_free_course(query.message, context, user_id, instructor)
+    
+async def handle_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    instructor = query.data.split("_")[-1]  # Извлекаем имя тренера, например, "evgeniy"
+    user_id = query.from_user.id
+    
+    # Проверяем, начал ли пользователь курс у этого тренера
+    if instructor not in context.user_data.get(user_id, {}).get("free_course", {}):
+        await query.message.reply_text("Вы не начали курс у этого тренера.", reply_markup=main_menu())
+        return
+    
+    # Запускаем следующий день для указанного тренера
+    await start_free_course(query.message, context, user_id, instructor)
+    await query.answer()  # Подтверждаем обработку callback
 
 # Функции для платного курса
 async def start_paid_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int):
@@ -470,7 +484,8 @@ async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    instructor = context.user_data[user_id].get("instructor")
+    instructor = context.user_data[user_id].get("instructor")  # Предполагается, что вы храните тренера в context
+    # Рассчитываем стоимость и скидку (пример)
     discount = min(user_scores.get(user_id, {}).get(instructor, 0) * 2, 600)
     final_price = 2000 - discount
     await query.message.reply_text(
@@ -482,32 +497,35 @@ async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"После оплаты отправьте чек для проверки.",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("Отправить чек", callback_data="send_receipt")]
-        ]),
+        ])
     )
-    user_waiting_for_receipt[user_id] = True
+    user_waiting_for_receipt[user_id] = True  # Устанавливаем флаг ожидания чека
 
 async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
-    if user_id not in user_waiting_for_receipt:
+    # Проверяем, ждёт ли бот чек от этого пользователя
+    if user_id not in user_waiting_for_receipt or not user_waiting_for_receipt[user_id]:
         await update.message.reply_text("Я не жду чек от вас. Пожалуйста, выберите платный курс и отправьте чек.")
         return
+    # Проверяем, что пользователь отправил фото
     if not update.message.photo:
         await update.message.reply_text("Пожалуйста, отправьте фото чека.")
         return
-    await context.bot.send_message(
-        chat_id=GROUP_ID,
-        text=f"Чек от {user_name} (ID: {user_id}). Подтвердите оплату.",
-    )
+    # Получаем file_id фото чека
     photo_file_id = update.message.photo[-1].file_id
+    # Отправляем чек в группу для проверки
     await context.bot.send_photo(
-        chat_id=GROUP_ID,
+        chat_id=GROUP_ID,  # Замените на ID вашей группы
         photo=photo_file_id,
+        caption=f"Чек от {user_name} (ID: {user_id}). Подтвердите оплату.",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("Подтвердить", callback_data=f"confirm_payment_{user_id}")]
-        ]),
+        ])
     )
     await update.message.reply_text("Чек отправлен на проверку. Ожидайте подтверждения.")
+    # Сбрасываем флаг ожидания чека
+    user_waiting_for_receipt[user_id] = False
 
 async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -624,6 +642,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern="^instructor_"))
     application.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern="^(free_course|next_day)$"))
+    application.add_handler(CallbackQueryHandler(handle_next_day, pattern=r"^next_day_(\w+)$"))
     application.add_handler(CallbackQueryHandler(handle_gender, pattern="^gender_"))
     application.add_handler(CallbackQueryHandler(handle_program, pattern="^program_"))
     application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)_(\w+)"))
