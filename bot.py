@@ -20,17 +20,17 @@ TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"
 GROUP_ID = "-1002451371911"
 
 # Глобальные словари для хранения данных
-user_scores = {}
+user_scores = {}  # {user_id: {instructor: баллы}}
 user_status = {}
 user_reports_sent = {}
 user_waiting_for_video = {}
 user_waiting_for_challenge_video = {}
 user_waiting_for_receipt = {}
 user_challenges = {}
-user_paid_course = {}  # Новый словарь для платного курса
+user_paid_course = {}
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
-# 1. Вспомогательные функции
+# Вспомогательные функции
 def main_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔥 Пройти бесплатный курс", callback_data="free_course")],
@@ -51,18 +51,18 @@ def get_report_button_text(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     suffix = "🏠" if program == "home" else "🏋️"
     return f"{prefix}{suffix} Отправить отчет"
 
-# 2. Функции бесплатного курса
-
-# Отправка 5-дневной тренировки (бесплатного курса)
-async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-    # Бесплатная программа доступна только при выборе: Женщина + программа "Дома"
+# Функции бесплатного курса
+async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int, instructor: str):
     if not (context.user_data[user_id].get("gender") == "female" and context.user_data[user_id].get("program") == "home"):
         await message.reply_text("Пока в разработке", reply_markup=main_menu())
         return
 
-    current_day = context.user_data[user_id].get("current_day", 1)
+    context.user_data[user_id].setdefault("free_course", {})
+    context.user_data[user_id]["free_course"].setdefault(instructor, {"current_day": 1})
+    current_day = context.user_data[user_id]["free_course"][instructor]["current_day"]
+
     if current_day > 5:
-        await message.reply_text("Вы завершили курс! 🎉", reply_markup=main_menu())
+        await message.reply_text(f"Вы завершили бесплатный курс у тренера {instructor}! 🎉", reply_markup=main_menu())
         return
 
     photo_paths = {
@@ -102,10 +102,10 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
     }
 
     exercises = course_program.get(current_day, [])
-    caption = f"🔥 **Бесплатный курс: День {current_day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
+    caption = f"🔥 **Бесплатный курс у {instructor}: День {current_day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
     report_button_text = get_report_button_text(context, user_id)
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(report_button_text, callback_data=f"send_report_day_{current_day}")]
+        [InlineKeyboardButton(report_button_text, callback_data=f"send_report_day_{current_day}_{instructor}")]
     ])
     try:
         await context.bot.send_photo(
@@ -122,76 +122,62 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
             reply_markup=keyboard,
         )
 
-# Обработчик отправки отчета
 async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    current_day = int(query.data.split("_")[-1])
-    if user_reports_sent.get(user_id, {}).get(current_day):
-        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day}.")
+    data = query.data.split("_")
+    current_day = int(data[3])
+    instructor = data[4]
+    if user_reports_sent.get(user_id, {}).get(f"{instructor}_free_{current_day}"):
+        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day} у тренера {instructor}.")
         return
-    user_waiting_for_video[user_id] = current_day
+    user_waiting_for_video[user_id] = (current_day, instructor, "free")
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день.")
 
-# Обработчик получения видео-отчета
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
     if user_id in user_waiting_for_video:
-        current_day = user_waiting_for_video[user_id]
-        await context.bot.send_message(
-            chat_id=GROUP_ID,
-            text=f"Видео-отчет от {user_name} (ID: {user_id}) за день {current_day}."
-        )
-        await context.bot.send_video(
-            chat_id=GROUP_ID,
-            video=update.message.video.file_id
-        )
-        user_reports_sent.setdefault(user_id, {})[current_day] = True
-        user_scores[user_id] += 60
-        del user_waiting_for_video[user_id]
-        if current_day < 5:
-            context.user_data[user_id]["current_day"] += 1
-            new_day = context.user_data[user_id]["current_day"]
-            user_waiting_for_video[user_id] = new_day
-            await update.message.reply_text(
-                f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id]}.\nГотовы к следующему дню ({new_day})?",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton(f"➡️ День {new_day}", callback_data="next_day")]
-                ]),
+        current_day, instructor, course_type = user_waiting_for_video[user_id]
+        if course_type == "free":
+            await context.bot.send_message(
+                chat_id=GROUP_ID,
+                text=f"Видео-отчет от {user_name} (ID: {user_id}) за день {current_day} бесплатного курса у тренера {instructor}."
             )
-        else:
-            user_status[user_id] = statuses[1]
-            await update.message.reply_text(
-                f"Поздравляем! Вы завершили бесплатный курс! 🎉\nВаши баллы: {user_scores[user_id]}.",
-                reply_markup=main_menu(),
+            await context.bot.send_video(
+                chat_id=GROUP_ID,
+                video=update.message.video.file_id
             )
-    elif user_id in user_waiting_for_challenge_video:
-        current_day = user_challenges[user_id]["current_day"]
-        await context.bot.send_message(
-            chat_id=GROUP_ID,
-            text=f"Видео-отчет от {user_name} (ID: {user_id}) за челлендж, день {current_day}."
-        )
-        await context.bot.send_video(
-            chat_id=GROUP_ID,
-            video=update.message.video.file_id
-        )
-        user_scores[user_id] += 60
-        del user_waiting_for_challenge_video[user_id]
-        await update.message.reply_text(
-            f"Отчет за челлендж принят! 🎉\nВаши баллы: {user_scores[user_id]}.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")]
-            ]) if current_day < 5 else main_menu()
-        )
+            user_reports_sent.setdefault(user_id, {})[f"{instructor}_free_{current_day}"] = True
+            user_scores.setdefault(user_id, {}).setdefault(instructor, 0)
+            user_scores[user_id][instructor] += 60
+            del user_waiting_for_video[user_id]
+            if current_day < 5:
+                context.user_data[user_id]["free_course"][instructor]["current_day"] += 1
+                new_day = context.user_data[user_id]["free_course"][instructor]["current_day"]
+                await update.message.reply_text(
+                    f"Отчет за день {current_day} принят! 🎉\nВаши баллы у тренера {instructor}: {user_scores[user_id][instructor]}.\nГотовы к следующему дню ({new_day})?",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton(f"➡️ День {new_day}", callback_data=f"next_day_{instructor}")]
+                    ]),
+                )
+            else:
+                user_status[user_id] = statuses[1]
+                await update.message.reply_text(
+                    f"Поздравляем! Вы завершили бесплатный курс у тренера {instructor}! 🎉\nВаши баллы: {user_scores[user_id][instructor]}.",
+                    reply_markup=main_menu(),
+                )
     else:
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.", reply_markup=main_menu())
 
-# --- Обработчики выбора пола и программы для бесплатного курса ---
-
+# Обработчики выбора пола и программы
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
+    instructor = context.user_data[user_id].get("instructor")
+    if not instructor:
+        await query.message.reply_text("Сначала выберите тренера.", reply_markup=main_menu())
+        return
     if query.data == "free_course":
         if "gender" not in context.user_data[user_id] or "program" not in context.user_data[user_id]:
             gender_keyboard = InlineKeyboardMarkup([
@@ -200,7 +186,7 @@ async def handle_free_course_callback(update: Update, context: ContextTypes.DEFA
             ])
             await query.message.reply_text("Ваш пол:", reply_markup=gender_keyboard)
             return
-    await start_free_course(query.message, context, user_id)
+    await start_free_course(query.message, context, user_id, instructor)
 
 async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -216,190 +202,87 @@ async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
     context.user_data[user_id]["program"] = "home" if query.data == "program_home" else "gym"
-    context.user_data[user_id]["current_day"] = 1
-    await start_free_course(query.message, context, user_id)
+    instructor = context.user_data[user_id].get("instructor")
+    await start_free_course(query.message, context, user_id, instructor)
 
-# --- Функции для платного курса ---
-
+# Функции для платного курса
 async def start_paid_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+    instructor = user_paid_course[user_id]["instructor"]
     current_day = user_paid_course[user_id]["current_day"]
     if current_day > 5:
-        await message.reply_text("Вы завершили платный курс! 🎉", reply_markup=main_menu())
+        await message.reply_text(f"Вы завершили платный курс у тренера {instructor}! 🎉", reply_markup=main_menu())
         return
 
-    # Программы для каждого тренера
     paid_course_programs = {
-        "evgeniy": {  # Евгений Курочкин
+        "evgeniy": {
             1: [
                 "1️⃣ Становая тяга (без веса) 3x15 [Видео](https://t.me/c/2241417709/140/141)",
                 "2️⃣ Жим ногами (имитация) 3x20 [Видео](https://t.me/c/2241417709/155/156)",
                 "3️⃣ Планка с подъемом ног 3x1 мин [Видео](https://t.me/c/2241417709/286/296)",
             ],
-            2: [
-                "1️⃣ Присед с узкой постановкой ног 3x20 [Видео](https://t.me/c/2241417709/363/364)",
-                "2️⃣ Тяга к подбородку (имитация) 3x15 [Видео](https://t.me/c/2241417709/226/227)",
-                "3️⃣ Скручивания с поворотом 3x20 [Видео](https://t.me/c/2241417709/274/275)",
-            ],
-            3: [
-                "1️⃣ Выпады с шагом вперёд 3x15 [Видео](https://t.me/c/2241417709/155/156)",
-                "2️⃣ Разведения рук в стороны (имитация) 3x20 [Видео](https://t.me/c/2241417709/256/257)",
-                "3️⃣ Подъёмы корпуса с утяжелением 3x15 [Видео](https://t.me/c/2241417709/367/368)",
-            ],
-            4: [
-                "1️⃣ Жим штанги лёжа (имитация) 3x15 [Видео](https://t.me/c/2241417709/167/168)",
-                "2️⃣ Махи ногами в стороны 3x20 [Видео](https://t.me/c/2241417709/339/340)",
-                "3️⃣ Планка с боковым поворотом 3x1 мин [Видео](https://t.me/c/2241417709/286/296)",
-            ],
-            5: [
-                "1️⃣ Присед с широкой постановкой 3x20 [Видео](https://t.me/c/2241417709/363/364)",
-                "2️⃣ Тяга в наклоне (имитация) 3x15 [Видео](https://t.me/c/2241417709/183/184)",
-                "3️⃣ Велосипед с утяжелением 3x15 [Видео](https://t.me/c/2241417709/278/279)",
-            ],
         },
-        "anastasiya": {  # АНАСТАСИЯ
+        "anastasiya": {
             1: [
                 "1️⃣ Ягодичный мост с резинкой 3x30 [Видео](https://t.me/c/2241417709/381/382)",
                 "2️⃣ Махи ногами назад 3x20 [Видео](https://t.me/c/2241417709/339/340)",
                 "3️⃣ Планка на локтях 3x1 мин [Видео](https://t.me/c/2241417709/286/296)",
             ],
-            2: [
-                "1️⃣ Присед с прыжком 3x20 [Видео](https://t.me/c/2241417709/363/364)",
-                "2️⃣ Отведение ног в стороны 3x20 [Видео](https://t.me/c/2241417709/385/386)",
-                "3️⃣ Скручивания с ногами вверх 3x20 [Видео](https://t.me/c/2241417709/274/275)",
-            ],
-            3: [
-                "1️⃣ Выпады в сторону 3x15 [Видео](https://t.me/c/2241417709/155/156)",
-                "2️⃣ Махи ногами вперёд 3x20 [Видео](https://t.me/c/2241417709/339/340)",
-                "3️⃣ Косые скручивания 3x15 [Видео](https://t.me/c/2241417709/282/283)",
-            ],
-            4: [
-                "1️⃣ Присед с махом в сторону 3x20 [Видео](https://t.me/c/2241417709/363/364)",
-                "2️⃣ Ягодичный мост с одной ногой 3x15 [Видео](https://t.me/c/2241417709/381/382)",
-                "3️⃣ Планка с касанием плеча 3x1 мин [Видео](https://t.me/c/2241417709/286/296)",
-            ],
-            5: [
-                "1️⃣ Выпады назад с прыжком 3x15 [Видео](https://t.me/c/2241417709/155/156)",
-                "2️⃣ Махи ногами в планке 3x20 [Видео](https://t.me/c/2241417709/339/340)",
-                "3️⃣ Велосипед с поворотом 3x15 [Видео](https://t.me/c/2241417709/278/279)",
-            ],
-        },
-        "default": {  # Для остальных тренеров (пока не реализованы)
-            1: ["Пока в разработке"],
-            2: ["Пока в разработке"],
-            3: ["Пока в разработке"],
-            4: ["Пока в разработке"],
-            5: ["Пока в разработке"],
         },
     }
 
-    instructor = context.user_data[user_id].get("instructor", "default")
-    exercises = paid_course_programs.get(instructor, paid_course_programs["default"]).get(current_day, [])
-    caption = f"📚 **Платный курс: День {current_day}** 📚\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
+    exercises = paid_course_programs.get(instructor, {}).get(current_day, ["Пока в разработке"])
+    caption = f"📚 **Платный курс у {instructor}: День {current_day}** 📚\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📹 Отправить отчет", callback_data=f"send_paid_report_day_{current_day}")]
+        [InlineKeyboardButton("📹 Отправить отчет", callback_data=f"send_paid_report_day_{current_day}_{instructor}")]
     ])
-    try:
-        await context.bot.send_message(
-            chat_id=message.chat_id,
-            text=caption,
-            parse_mode="Markdown",
-            reply_markup=keyboard,
-        )
-    except Exception as e:
-        logger.error(f"Ошибка при отправке платного курса: {e}")
-        await message.reply_text(
-            "Ошибка при отправке программы. Попробуйте снова.",
-            reply_markup=keyboard,
-        )
+    await context.bot.send_message(
+        chat_id=message.chat_id,
+        text=caption,
+        parse_mode="Markdown",
+        reply_markup=keyboard,
+    )
 
 async def handle_send_paid_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    current_day = int(query.data.split("_")[-1])
-    if user_reports_sent.get(user_id, {}).get(f"paid_{current_day}"):
-        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day} платного курса.")
+    data = query.data.split("_")
+    current_day = int(data[4])
+    instructor = data[5]
+    if user_reports_sent.get(user_id, {}).get(f"{instructor}_paid_{current_day}"):
+        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day} платного курса у тренера {instructor}.")
         return
-    user_waiting_for_video[user_id] = f"paid_{current_day}"
+    user_waiting_for_video[user_id] = (current_day, instructor, "paid")
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день платного курса.")
 
-# --- Функции для челленджей ---
-
+# Функции для челленджей
 async def send_challenge_task(message: Update, user_id: int, context: ContextTypes.DEFAULT_TYPE):
+    instructor = user_challenges[user_id]["instructor"]
     current_day = user_challenges[user_id]["current_day"]
     if current_day > 5:
-        await message.reply_text("Вы завершили челлендж! 🎉", reply_markup=main_menu())
+        await message.reply_text(f"Вы завершили челлендж у тренера {instructor}! 🎉", reply_markup=main_menu())
         return
 
-    # Программы челленджей для каждого тренера
     challenge_programs = {
-        "evgeniy": {  # Евгений Курочкин
+        "evgeniy": {
             1: [
                 "1️⃣ Становая тяга (имитация) 40 раз [Видео](https://t.me/c/2241417709/140/141)",
                 "2️⃣ Планка с подъемом ног 3 мин [Видео](https://t.me/c/2241417709/286/296)",
                 "3️⃣ Велосипед с утяжелением 30 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)",
             ],
-            2: [
-                "1️⃣ Присед с узкой постановкой ног 50 раз [Видео](https://t.me/c/2241417709/363/364)",
-                "2️⃣ Жим штанги лёжа (имитация) 30 раз [Видео](https://t.me/c/2241417709/167/168)",
-                "3️⃣ Скручивания с поворотом 40 раз [Видео](https://t.me/c/2241417709/274/275)",
-            ],
-            3: [
-                "1️⃣ Выпады с шагом вперёд 40 раз [Видео](https://t.me/c/2241417709/155/156)",
-                "2️⃣ Тяга в наклоне (имитация) 30 раз [Видео](https://t.me/c/2241417709/183/184)",
-                "3️⃣ Планка с боковым поворотом 3 мин [Видео](https://t.me/c/2241417709/286/296)",
-            ],
-            4: [
-                "1️⃣ Присед с широкой постановкой 60 раз [Видео](https://t.me/c/2241417709/363/364)",
-                "2️⃣ Разведения рук в стороны (имитация) 40 раз [Видео](https://t.me/c/2241417709/256/257)",
-                "3️⃣ Подъёмы корпуса с утяжелением 40 раз [Видео](https://t.me/c/2241417709/367/368)",
-            ],
-            5: [
-                "1️⃣ Жим ногами (имитация) 50 раз [Видео](https://t.me/c/2241417709/155/156)",
-                "2️⃣ Тяга к подбородку (имитация) 40 раз [Видео](https://t.me/c/2241417709/226/227)",
-                "3️⃣ Велосипед с утяжелением 50 на каждую ногу [Видео](https://t.me/c/2241417709/278/279)",
-            ],
         },
-        "anastasiya": {  # АНАСТАСИЯ
+        "anastasiya": {
             1: [
                 "1️⃣ Ягодичный мост с резинкой 50 раз [Видео](https://t.me/c/2241417709/381/382)",
                 "2️⃣ Махи ногами назад 40 раз [Видео](https://t.me/c/2241417709/339/340)",
                 "3️⃣ Планка на локтях 3 мин [Видео](https://t.me/c/2241417709/286/296)",
             ],
-            2: [
-                "1️⃣ Присед с прыжком 40 раз [Видео](https://t.me/c/2241417709/363/364)",
-                "2️⃣ Отведение ног в стороны 50 раз [Видео](https://t.me/c/2241417709/385/386)",
-                "3️⃣ Скручивания с ногами вверх 40 раз [Видео](https://t.me/c/2241417709/274/275)",
-            ],
-            3: [
-                "1️⃣ Выпады в сторону 40 раз [Видео](https://t.me/c/2241417709/155/156)",
-                "2️⃣ Махи ногами вперёд 40 раз [Видео](https://t.me/c/2241417709/339/340)",
-                "3️⃣ Косые скручивания 40 раз [Видео](https://t.me/c/2241417709/282/283)",
-            ],
-            4: [
-                "1️⃣ Присед с махом в сторону 50 раз [Видео](https://t.me/c/2241417709/363/364)",
-                "2️⃣ Ягодичный мост с одной ногой 40 раз [Видео](https://t.me/c/2241417709/381/382)",
-                "3️⃣ Планка с касанием плеча 3 мин [Видео](https://t.me/c/2241417709/286/296)",
-            ],
-            5: [
-                "1️⃣ Выпады назад с прыжком 40 раз [Видео](https://t.me/c/2241417709/155/156)",
-                "2️⃣ Махи ногами в планке 50 раз [Видео](https://t.me/c/2241417709/339/340)",
-                "3️⃣ Велосипед с поворотом 40 раз [Видео](https://t.me/c/2241417709/278/279)",
-            ],
-        },
-        "default": {  # Для остальных тренеров
-            1: ["Пока в разработке"],
-            2: ["Пока в разработке"],
-            3: ["Пока в разработке"],
-            4: ["Пока в разработке"],
-            5: ["Пока в разработке"],
         },
     }
 
-    instructor = context.user_data[user_id].get("instructor", "default")
-    exercises = challenge_programs.get(instructor, challenge_programs["default"]).get(current_day, [])
-    caption = f"💪 **Челлендж: День {current_day}** 💪\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
+    exercises = challenge_programs.get(instructor, {}).get(current_day, ["Пока в разработке"])
+    caption = f"💪 **Челлендж у {instructor}: День {current_day}** 💪\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
     buttons = [
-        [InlineKeyboardButton("📹 Отправить отчет", callback_data=f"send_challenge_report_day_{current_day}")]
+        [InlineKeyboardButton("📹 Отправить отчет", callback_data=f"send_challenge_report_day_{current_day}_{instructor}")]
     ]
     if current_day < 5:
         buttons.append([InlineKeyboardButton("➡️ Следующий день", callback_data="challenge_next")])
@@ -415,11 +298,13 @@ async def send_challenge_task(message: Update, user_id: int, context: ContextTyp
 async def handle_send_challenge_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    current_day = int(query.data.split("_")[-1])
-    if user_reports_sent.get(user_id, {}).get(f"challenge_{current_day}"):
-        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day} челленджа.")
+    data = query.data.split("_")
+    current_day = int(data[4])
+    instructor = data[5]
+    if user_reports_sent.get(user_id, {}).get(f"{instructor}_challenge_{current_day}"):
+        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day} челленджа у тренера {instructor}.")
         return
-    user_waiting_for_challenge_video[user_id] = current_day
+    user_waiting_for_challenge_video[user_id] = (current_day, instructor)
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день челленджа.")
 
 async def handle_challenge_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -438,36 +323,32 @@ async def handle_challenge_next_day(update: Update, context: ContextTypes.DEFAUL
             del user_waiting_for_challenge_video[user_id]
         del user_challenges[user_id]
 
-# --- Функции для обработки команды /start и выбора инструктора ---
-
+# Обработка команды /start и выбора тренера
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id
-        # Обработка реферального параметра
         if context.args:
             referrer_id_str = context.args[0]
             try:
                 referrer_id = int(referrer_id_str)
                 if referrer_id != user_id:
-                    user_scores[referrer_id] = user_scores.get(referrer_id, 0) + 100
-                    try:
+                    instructor = context.user_data[referrer_id].get("instructor")
+                    if instructor:
+                        user_scores.setdefault(referrer_id, {}).setdefault(instructor, 0)
+                        user_scores[referrer_id][instructor] += 100
                         await context.bot.send_message(
                             chat_id=referrer_id,
-                            text="Поздравляем! Новый пользователь воспользовался вашей реферальной ссылкой. Вы получили 100 баллов!"
+                            text=f"Поздравляем! Новый пользователь воспользовался вашей реферальной ссылкой. Вы получили 100 баллов у тренера {instructor}!"
                         )
-                    except Exception as e:
-                        logger.error(f"Не удалось отправить сообщение о реферальном бонусе пользователю {referrer_id}: {e}")
             except ValueError:
                 pass
 
-        # Инициализация данных пользователя
-        context.user_data.setdefault(user_id, {"current_day": 1})
+        context.user_data.setdefault(user_id, {})
         if user_id not in user_scores:
-            user_scores[user_id] = 0
+            user_scores[user_id] = {}
         if user_id not in user_status:
             user_status[user_id] = statuses[0]
         
-        # Выбор инструктора (5 кнопок)
         instructor_keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Евгений Курочкин", callback_data="instructor_1")],
             [InlineKeyboardButton("АНАСТАСИЯ", callback_data="instructor_2")],
@@ -522,8 +403,7 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
             reply_markup=main_menu()
         )
 
-# --- Остальной функционал ---
-
+# Остальной функционал
 async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -536,14 +416,15 @@ async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TY
 async def handle_buy_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    if user_scores.get(user_id, 0) >= 300:
-        user_scores[user_id] -= 300
+    instructor = context.user_data[user_id].get("instructor")
+    if instructor and user_scores.get(user_id, {}).get(instructor, 0) >= 300:
+        user_scores[user_id][instructor] -= 300
         await query.message.reply_text(
-            "Покупка меню питания успешно завершена!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2",
+            f"Покупка меню питания успешно завершена у тренера {instructor}!\nВот ваше меню питания: https://t.me/MENUKURO4KIN/2",
             reply_markup=main_menu()
         )
     else:
-        await query.message.reply_text("Недостаточно баллов для покупки меню питания!")
+        await query.message.reply_text(f"Недостаточно баллов у тренера {instructor} для покупки меню питания!")
 
 async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -551,46 +432,49 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     me = await context.bot.get_me()
     referral_link = f"https://t.me/{me.username}?start={user_id}"
     await query.message.reply_text(
-        f"Ваша реферальная ссылка:\n{referral_link}\n\nПоделитесь этой ссылкой с друзьями, и когда они начнут пользоваться ботом, вы получите 100 баллов!"
+        f"Ваша реферальная ссылка:\n{referral_link}\n\nПоделитесь этой ссылкой с друзьями, и когда они начнут пользоваться ботом, вы получите 100 баллов у вашего текущего тренера!"
     )
 
 async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
+    instructor = context.user_data[user_id].get("instructor")
     if user_challenges.get(user_id):
         await send_challenge_task(query.message, user_id, context)
-    elif user_scores.get(user_id, 0) >= 300:
+    elif user_scores.get(user_id, {}).get(instructor, 0) >= 300:
         buttons = [
             [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data="buy_challenge")],
             [InlineKeyboardButton("Назад", callback_data="back")],
         ]
         await query.message.reply_text(
-            "Доступ к челленджам стоит 300 баллов. Хотите приобрести?",
+            f"Доступ к челленджам у тренера {instructor} стоит 300 баллов. Хотите приобрести?",
             reply_markup=InlineKeyboardMarkup(buttons),
         )
     else:
         await query.message.reply_text(
-            f"Для доступа к челленджам нужно 300 баллов.\nУ вас: {user_scores.get(user_id, 0)} баллов.\nПродолжайте тренировки!"
+            f"Для доступа к челленджам у тренера {instructor} нужно 300 баллов.\nУ вас: {user_scores.get(user_id, {}).get(instructor, 0)} баллов.\nПродолжайте тренировки!"
         )
 
 async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    if user_scores.get(user_id, 0) >= 300:
-        user_scores[user_id] -= 300
-        user_challenges[user_id] = {"current_day": 1}
-        await query.message.reply_text("✅ Доступ к челленджам открыт!")
+    instructor = context.user_data[user_id].get("instructor")
+    if user_scores.get(user_id, {}).get(instructor, 0) >= 300:
+        user_scores[user_id][instructor] -= 300
+        user_challenges[user_id] = {"current_day": 1, "instructor": instructor}
+        await query.message.reply_text(f"✅ Доступ к челленджам у тренера {instructor} открыт!")
         await send_challenge_task(query.message, user_id, context)
     else:
-        await query.message.reply_text("Недостаточно баллов для покупки доступа!")
+        await query.message.reply_text(f"Недостаточно баллов у тренера {instructor} для покупки доступа!")
 
 async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    discount = min(user_scores.get(user_id, 0) * 2, 600)
+    instructor = context.user_data[user_id].get("instructor")
+    discount = min(user_scores.get(user_id, {}).get(instructor, 0) * 2, 600)
     final_price = 2000 - discount
     await query.message.reply_text(
-        f"📚 **Платный курс** 📚\n\n"
+        f"📚 **Платный курс у {instructor}** 📚\n\n"
         f"Стоимость курса: 2000 рублей.\n"
         f"Ваша скидка: {discount} рублей.\n"
         f"Итоговая сумма: {final_price} рублей.\n\n"
@@ -628,24 +512,25 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = int(query.data.split("_")[-1])
+    instructor = context.user_data[user_id].get("instructor")
     user_status[user_id] = statuses[2]
     del user_waiting_for_receipt[user_id]
-    user_paid_course[user_id] = {"current_day": 1}  # Инициализация платного курса
+    user_paid_course[user_id] = {"current_day": 1, "instructor": instructor}
     await context.bot.send_message(
         chat_id=user_id,
-        text="Оплата подтверждена! Вам открыт доступ к платному курсу. 🎉",
+        text=f"Оплата подтверждена! Вам открыт доступ к платному курсу у тренера {instructor}. 🎉",
     )
     await start_paid_course(query.message, context, user_id)
 
 async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    score = user_scores.get(user_id, 0)
     status = user_status.get(user_id, statuses[0])
+    scores_text = "\n".join([f"Баллы у {instructor}: {score}" for instructor, score in user_scores.get(user_id, {}).items()])
     caption = (
         f"👤 Ваш кабинет:\n\n"
         f"Статус: {status}\n"
-        f"Баллы: {score}\n"
+        f"{scores_text}\n"
         "Продолжайте тренироваться, чтобы улучшить статус и заработать больше баллов!"
     )
     try:
@@ -707,9 +592,10 @@ async def handle_earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    score = user_scores.get(user_id, 0)
+    instructor = context.user_data[user_id].get("instructor")
+    score = user_scores.get(user_id, {}).get(instructor, 0)
     caption = (
-        f"💰 Как потратить баллы:\n\n"
+        f"💰 Как потратить баллы у тренера {instructor}:\n\n"
         f"У вас есть {score} баллов.\n"
         "Вы можете потратить баллы на:\n"
         "- Скидку при покупке платного курса (1 балл = 2 рубля).\n"
@@ -731,20 +617,18 @@ async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.message.reply_text("Главное меню", reply_markup=main_menu())
 
-# 4. Функция main – регистрация всех обработчиков
+# Регистрация обработчиков
 def main():
     application = Application.builder().token(TOKEN).build()
 
-    # Обработчик команды /start
     application.add_handler(CommandHandler("start", start))
-    # Обработчики кнопок
     application.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern="^instructor_"))
     application.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern="^(free_course|next_day)$"))
     application.add_handler(CallbackQueryHandler(handle_gender, pattern="^gender_"))
     application.add_handler(CallbackQueryHandler(handle_program, pattern="^program_"))
-    application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)"))
-    application.add_handler(CallbackQueryHandler(handle_send_paid_report, pattern=r"send_paid_report_day_(\d+)"))
-    application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"send_challenge_report_day_(\d+)"))
+    application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)_(\w+)"))
+    application.add_handler(CallbackQueryHandler(handle_send_paid_report, pattern=r"send_paid_report_day_(\d+)_(\w+)"))
+    application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"send_challenge_report_day_(\d+)_(\w+)"))
     application.add_handler(CallbackQueryHandler(handle_challenges, pattern="^challenge_menu$"))
     application.add_handler(CallbackQueryHandler(buy_challenge, pattern="^buy_challenge$"))
     application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="^paid_course$"))
@@ -759,7 +643,6 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern="^challenge_next$"))
     application.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
 
-    # Обработчики сообщений
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
     application.add_handler(MessageHandler(filters.PHOTO, handle_receipt))
 
