@@ -68,12 +68,19 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
 
     # Инициализация данных пользователя
     context.user_data[user_id].setdefault("free_course", {})
-    context.user_data[user_id]["free_course"].setdefault(instructor, {"current_day": 1})
-    current_day = context.user_data[user_id]["free_course"][instructor]["current_day"]
+    context.user_data[user_id]["free_course"].setdefault(instructor, {})
+    
+    # Инициализация текущего дня для программы "дома" или "в зале"
+    if program == "home":
+        context.user_data[user_id]["free_course"][instructor].setdefault("current_day_home", 1)
+        current_day = context.user_data[user_id]["free_course"][instructor]["current_day_home"]
+    else:  # program == "gym"
+        context.user_data[user_id]["free_course"][instructor].setdefault("current_day_gym", 1)
+        current_day = context.user_data[user_id]["free_course"][instructor]["current_day_gym"]
 
     # Проверка завершения курса
     if current_day > 5:
-        await message.reply_text(f"Вы завершили бесплатный курс у тренера {instructor}! 🎉", reply_markup=main_menu())
+        await message.reply_text(f"Вы завершили бесплатный курс у тренера {instructor} ({'дома' if program == 'home' else 'в зале'})! 🎉", reply_markup=main_menu())
         return
 
     # Программа для тренера Евгения (для дома)
@@ -134,7 +141,7 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
                 "3. Скалолаз 20х3 [Видео](https://t.me/c/2334950288/16/31)",
             ],
         }
-    # Новая программа для тренера Анастасии (для зала)
+    # Программа для тренера Анастасии (для зала)
     elif instructor == "anastasiya" and program == "gym":
         course_program = {
             1: [
@@ -178,10 +185,10 @@ async def start_free_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
 
     # Формирование сообщения
     exercises = course_program.get(current_day, [])
-    caption = f"🔥 **Бесплатный курс у {instructor}: День {current_day}** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
+    caption = f"🔥 **Бесплатный курс у {instructor}: День {current_day} ({'дома' if program == 'home' else 'в зале'})** 🔥\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
     report_button_text = get_report_button_text(context, user_id)
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(report_button_text, callback_data=f"send_report_day_{current_day}_{instructor}")]
+        [InlineKeyboardButton(report_button_text, callback_data=f"send_report_day_{current_day}_{instructor}_{program}")]
     ])
 
     # Отправка программы с фото
@@ -204,10 +211,12 @@ async def handle_send_report(update: Update, context: ContextTypes.DEFAULT_TYPE)
     data = query.data.split("_")
     current_day = int(data[3])
     instructor = data[4]
-    if user_reports_sent.get(user_id, {}).get(f"{instructor}_free_{current_day}"):
-        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day} у тренера {instructor}.")
+    program = data[5]  # "home" или "gym"
+    report_key = f"{instructor}_free_{current_day}_{program}"
+    if user_reports_sent.get(user_id, {}).get(report_key):
+        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day} у тренера {instructor} ({'дома' if program == 'home' else 'в зале'}).")
         return
-    user_waiting_for_video[user_id] = (current_day, instructor, "free")
+    user_waiting_for_video[user_id] = (current_day, instructor, "free", program)
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день.")
 
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -215,30 +224,36 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
     if user_id in user_waiting_for_video:
-        current_day, instructor, course_type = user_waiting_for_video[user_id]
+        current_day, instructor, course_type, program = user_waiting_for_video[user_id]
         if course_type == "free":
             await context.bot.send_message(
                 chat_id=GROUP_ID,
-                text=f"Видео-отчет от {user_name} (ID: {user_id}) за день {current_day} бесплатного курса у тренера {instructor}."
+                text=f"Видео-отчет от {user_name} (ID: {user_id}) за день {current_day} бесплатного курса у тренера {instructor} ({'дома' if program == 'home' else 'в зале'})."
             )
             await context.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
-            user_reports_sent.setdefault(user_id, {})[f"{instructor}_free_{current_day}"] = True
+            report_key = f"{instructor}_free_{current_day}_{program}"
+            user_reports_sent.setdefault(user_id, {})[report_key] = True
             user_scores.setdefault(user_id, {}).setdefault(instructor, 0)
             user_scores[user_id][instructor] += 60
             del user_waiting_for_video[user_id]
             if current_day < 5:
-                context.user_data[user_id]["free_course"][instructor]["current_day"] += 1
-                new_day = context.user_data[user_id]["free_course"][instructor]["current_day"]
+                # Обновляем текущий день в зависимости от программы
+                if program == "home":
+                    context.user_data[user_id]["free_course"][instructor]["current_day_home"] += 1
+                    new_day = context.user_data[user_id]["free_course"][instructor]["current_day_home"]
+                else:  # program == "gym"
+                    context.user_data[user_id]["free_course"][instructor]["current_day_gym"] += 1
+                    new_day = context.user_data[user_id]["free_course"][instructor]["current_day_gym"]
                 await update.message.reply_text(
                     f"Отчет за день {current_day} принят! 🎉\nВаши баллы у тренера {instructor}: {user_scores[user_id][instructor]}.\nГотовы к дню {new_day}?",
                     reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton(f"➡️ День {new_day}", callback_data=f"next_day_{instructor}")]
+                        [InlineKeyboardButton(f"➡️ День {new_day}", callback_data=f"next_day_{instructor}_{program}")]
                     ]),
                 )
             else:
                 user_status[user_id] = statuses[1]
                 await update.message.reply_text(
-                    f"Поздравляем! Вы завершили бесплатный курс у тренера {instructor}! 🎉\nВаши баллы: {user_scores[user_id][instructor]}.",
+                    f"Поздравляем! Вы завершили бесплатный курс у тренера {instructor} ({'дома' if program == 'home' else 'в зале'})! 🎉\nВаши баллы: {user_scores[user_id][instructor]}.",
                     reply_markup=main_menu(),
                 )
     elif user_id in user_waiting_for_challenge_video:
@@ -334,7 +349,9 @@ async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Переходит к следующему дню бесплатного курса."""
     query = update.callback_query
-    instructor = query.data.split("_")[-1]
+    data = query.data.split("_")
+    instructor = data[2]
+    program = data[3]  # "home" или "gym"
     user_id = query.from_user.id
     if instructor not in context.user_data.get(user_id, {}).get("free_course", {}):
         await query.message.reply_text("Вы не начали курс у этого тренера.", reply_markup=main_menu())
@@ -659,10 +676,10 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(handle_instructor_selection, pattern="^instructor_"))
     application.add_handler(CallbackQueryHandler(handle_free_course_callback, pattern="^free_course$"))
-    application.add_handler(CallbackQueryHandler(handle_next_day, pattern=r"^next_day_(\w+)$"))
+    application.add_handler(CallbackQueryHandler(handle_next_day, pattern=r"^next_day_(\w+)_(\w+)$"))
     application.add_handler(CallbackQueryHandler(handle_gender, pattern="^gender_"))
     application.add_handler(CallbackQueryHandler(handle_program, pattern="^program_"))
-    application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)_(\w+)"))
+    application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)_(\w+)_(\w+)"))
     application.add_handler(CallbackQueryHandler(handle_send_paid_report, pattern=r"send_paid_report_day_(\d+)_(\w+)"))
     application.add_handler(CallbackQueryHandler(handle_paid_next_day, pattern=r"^paid_next_day_(\w+)$"))
     application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"send_challenge_report_day_(\d+)_(\w+)"))
