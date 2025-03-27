@@ -207,7 +207,7 @@ async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    instructor = query.data.split("_")[-1]  # Извлекаем имя тренера
+    instructor = query.data.split("_")[-1]
     user_id = query.from_user.id
     if instructor not in context.user_data.get(user_id, {}).get("free_course", {}):
         await query.message.reply_text("Вы не начали курс у этого тренера.", reply_markup=main_menu())
@@ -218,11 +218,19 @@ async def handle_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Функции для платного курса
 async def start_paid_course(message, context: ContextTypes.DEFAULT_TYPE, user_id: int, instructor: str):
     if instructor not in user_paid_course.get(user_id, {}):
-        await message.reply_text("У вас нет доступа к платному курсу у этого тренера.", reply_markup=main_menu())
+        await context.bot.send_message(
+            chat_id=message.chat_id,
+            text="У вас нет доступа к платному курсу у этого тренера.",
+            reply_markup=main_menu()
+        )
         return
     current_day = user_paid_course[user_id][instructor]["current_day"]
     if current_day > 5:
-        await message.reply_text(f"Вы завершили платный курс у тренера {instructor}! 🎉", reply_markup=main_menu())
+        await context.bot.send_message(
+            chat_id=message.chat_id,
+            text=f"Вы завершили платный курс у тренера {instructor}! 🎉",
+            reply_markup=main_menu()
+        )
         return
 
     paid_course_programs = {
@@ -248,7 +256,7 @@ async def start_paid_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
         [InlineKeyboardButton("📹 Отправить отчет", callback_data=f"send_paid_report_day_{current_day}_{instructor}")]
     ])
     await context.bot.send_message(
-        chat_id=message.chat_id,
+        chat_id=message.chat_id,  # Отправляем в чат с ботом
         text=caption,
         parse_mode="Markdown",
         reply_markup=keyboard,
@@ -453,21 +461,22 @@ async def handle_challenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
     instructor = context.user_data[user_id].get("instructor")
-    if user_challenges.get(user_id, {}).get(instructor):
-        await send_challenge_task(query.message, user_id, context, instructor)
-    elif user_scores.get(user_id, {}).get(instructor, 0) >= 300:
-        buttons = [
-            [InlineKeyboardButton("Купить доступ за 300 баллов", callback_data=f"buy_challenge_{instructor}")],
-            [InlineKeyboardButton("Назад", callback_data="back")],
-        ]
-        await query.message.reply_text(
-            f"Доступ к челленджам у тренера {instructor} стоит 300 баллов. Хотите приобрести?",
-            reply_markup=InlineKeyboardMarkup(buttons),
-        )
+    if instructor not in user_challenges.get(user_id, {}):
+        if user_scores.get(user_id, {}).get(instructor, 0) >= 300:
+            buttons = [
+                [InlineKeyboardButton("Купить челлендж за 300 баллов", callback_data=f"buy_challenge_{instructor}")],
+                [InlineKeyboardButton("Назад", callback_data="back")],
+            ]
+            await query.message.reply_text(
+                f"Для доступа к челленджам у тренера {instructor} нужно 300 баллов. Хотите приобрести?",
+                reply_markup=InlineKeyboardMarkup(buttons),
+            )
+        else:
+            await query.message.reply_text(
+                f"Недостаточно баллов для покупки челленджа у тренера {instructor}. У вас: {user_scores.get(user_id, {}).get(instructor, 0)} баллов."
+            )
     else:
-        await query.message.reply_text(
-            f"Для доступа к челленджам у тренера {instructor} нужно 300 баллов.\nУ вас: {user_scores.get(user_id, {}).get(instructor, 0)} баллов.\nПродолжайте тренировки!"
-        )
+        await send_challenge_task(query.message, user_id, context, instructor)
 
 async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -476,169 +485,96 @@ async def buy_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_scores.get(user_id, {}).get(instructor, 0) >= 300:
         user_scores[user_id][instructor] -= 300
         user_challenges.setdefault(user_id, {})[instructor] = {"current_day": 1}
-        await query.message.reply_text(f"✅ Доступ к челленджам у тренера {instructor} открыт!")
+        await query.message.reply_text(f"Челлендж у тренера {instructor} куплен! 🎉")
         await send_challenge_task(query.message, user_id, context, instructor)
     else:
-        await query.message.reply_text(f"Недостаточно баллов у тренера {instructor} для покупки доступа!")
+        await query.message.reply_text(f"Недостаточно баллов для покупки челленджа у тренера {instructor}.")
 
 async def handle_paid_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
     instructor = context.user_data[user_id].get("instructor")
-    discount = min(user_scores.get(user_id, {}).get(instructor, 0) * 2, 600)
-    final_price = 2000 - discount
-    await query.message.reply_text(
-        f"📚 **Платный курс у {instructor}** 📚\n\n"
-        f"Стоимость курса: 2000 рублей.\n"
-        f"Ваша скидка: {discount} рублей.\n"
-        f"Итоговая сумма: {final_price} рублей.\n\n"
-        f"Переведите сумму на карту: 89236950304 (Яндекс Банк).\n"
-        f"После оплаты отправьте чек для проверки.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Отправить чек", callback_data=f"send_receipt_{instructor}")]
-        ]),
-    )
+    if instructor not in user_paid_course.get(user_id, {}):
+        discount = min(user_scores.get(user_id, {}).get(instructor, 0) * 2, 600)
+        final_price = 2000 - discount
+        buttons = [
+            [InlineKeyboardButton("Оплатить", callback_data=f"pay_course_{instructor}")],
+            [InlineKeyboardButton("Назад", callback_data="back")],
+        ]
+        await query.message.reply_text(
+            f"Платный курс у тренера {instructor} стоит 2000 рублей. Скидка: {discount} рублей. Итоговая стоимость: {final_price} рублей. Нажмите 'Оплатить', чтобы продолжить.",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    else:
+        await start_paid_course(query.message, context, user_id, instructor)
 
-async def handle_send_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def pay_course(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
     instructor = query.data.split("_")[-1]
-    context.user_data[user_id]["current_instructor_for_receipt"] = instructor
-    user_waiting_for_receipt[user_id] = True
-    await query.message.reply_text("Пожалуйста, отправьте фото чека для проверки.")
+    await query.message.reply_text(
+        f"Для оплаты платного курса у тренера {instructor} переведите 2000 рублей на карту 1234-5678-9012-3456 и отправьте чек.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Отправить чек", callback_data=f"send_receipt_{instructor}")]
+        ])
+    )
+
+async def send_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    instructor = query.data.split("_")[-1]
+    user_waiting_for_receipt[user_id] = instructor
+    await query.message.reply_text("Пожалуйста, отправьте фото чека.")
 
 async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    user_name = update.message.from_user.first_name
-    if user_id not in user_waiting_for_receipt or not user_waiting_for_receipt[user_id]:
-        await update.message.reply_text("Я не жду чек от вас. Пожалуйста, выберите платный курс и нажмите 'Отправить чек'.")
-        return
-    if not update.message.photo:
-        await update.message.reply_text("Пожалуйста, отправьте фото чека.")
-        return
-    instructor = context.user_data[user_id].get("current_instructor_for_receipt")
-    await context.bot.send_message(
-        chat_id=GROUP_ID,
-        text=f"Чек от {user_name} (ID: {user_id}) для тренера {instructor}. Подтвердите оплату.",
-    )
-    photo_file_id = update.message.photo[-1].file_id
-    await context.bot.send_photo(
-        chat_id=GROUP_ID,
-        photo=photo_file_id,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Подтвердить", callback_data=f"confirm_payment_{user_id}_{instructor}")]
-        ]),
-    )
-    await update.message.reply_text("Чек отправлен на проверку. Ожидайте подтверждения.")
-    user_waiting_for_receipt[user_id] = False
+    if user_id in user_waiting_for_receipt:
+        instructor = user_waiting_for_receipt[user_id]
+        await context.bot.send_photo(
+            chat_id=GROUP_ID,
+            photo=update.message.photo[-1].file_id,
+            caption=f"Чек от пользователя {user_id} для тренера {instructor}.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Подтвердить", callback_data=f"confirm_payment_{user_id}_{instructor}")]
+            ])
+        )
+        del user_waiting_for_receipt[user_id]
+        await update.message.reply_text("Чек отправлен на проверку.")
+    else:
+        await update.message.reply_text("Я не жду чек. Пожалуйста, начните процесс оплаты заново.")
 
 async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     data = query.data.split("_")
     user_id = int(data[2])
     instructor = data[3]
-    user_status[user_id] = statuses[2]
     user_paid_course.setdefault(user_id, {})[instructor] = {"current_day": 1}
     await context.bot.send_message(
+        chat_id=GROUP_ID,
+        text=f"Оплата для пользователя {user_id} и тренера {instructor} подтверждена."
+    )
+    # Отправляем сообщение в чат с ботом и сразу начинаем курс
+    await context.bot.send_message(
         chat_id=user_id,
-        text=f"Оплата подтверждена! Вам открыт доступ к платному курсу у тренера {instructor}. 🎉",
+        text=f"Оплата подтверждена! Вы можете начать платный курс у тренера {instructor}.",
     )
+    # Вызываем start_paid_course с текущим сообщением из чата пользователя
     await start_paid_course(query.message, context, user_id, instructor)
+    await query.answer()
 
-async def handle_my_cabinet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start_paid_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    status = user_status.get(user_id, statuses[0])
-    scores_text = "\n".join([f"Баллы у {instructor}: {score}" for instructor, score in user_scores.get(user_id, {}).items()])
-    caption = (
-        f"👤 Ваш кабинет:\n\n"
-        f"Статус: {status}\n"
-        f"{scores_text}\n"
-        "Продолжайте тренироваться, чтобы улучшить статус и заработать больше баллов!"
-    )
-    try:
-        await context.bot.send_photo(
-            chat_id=update.effective_chat.id,
-            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9695.PNG?raw=true",
-            caption=caption,
-            parse_mode="Markdown",
-        )
-    except Exception as e:
-        logger.error(f"Ошибка при отправке фото для 'Мой кабинет': {e}")
-        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
-
-async def handle_about_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    caption = (
-        "👤 О тренере:\n\n"
-        "Курочкин Евгений Витальевич\n"
-        "Общий тренировочный стаж - 20 лет\n"
-        "Стаж работы - 15 лет\n"
-        "МС - по становой тяге\n"
-        "МС - по жиму штанги лежа\n"
-        "Судья - федеральной категории\n"
-        "Организатор соревнований\n"
-        "КМС - по бодибилдингу\n\n"
-        "20 лет в фитнесе!"
-    )
-    try:
-        await context.bot.send_photo(
-            chat_id=update.effective_chat.id,
-            photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025.jpg?raw=true",
-            caption=caption,
-            parse_mode="Markdown",
-        )
-    except Exception as e:
-        logger.error(f"Ошибка при отправке фото для 'Обо мне': {e}")
-        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
-
-async def handle_earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    caption = (
-        "💡 Как заработать баллы:\n\n"
-        "1. Проходите бесплатный курс и отправляйте видео-отчеты.\n"
-        "2. Участвуйте в челленджах и отправляйте видео-отчеты.\n"
-        "3. Приглашайте друзей и получайте баллы за их активность.\n"
-        "4. Покупайте платный курс и получаете дополнительные баллы."
-    )
-    try:
-        await context.bot.send_photo(
-            chat_id=update.effective_chat.id,
-            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9699.PNG?raw=true",
-            caption=caption,
-            parse_mode="Markdown",
-        )
-    except Exception as e:
-        logger.error(f"Ошибка при отправке фото для 'Как заработать баллы': {e}")
-        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
-
-async def handle_spend_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    instructor = context.user_data[user_id].get("instructor")
-    score = user_scores.get(user_id, {}).get(instructor, 0)
-    caption = (
-        f"💰 Как потратить баллы у тренера {instructor}:\n\n"
-        f"У вас есть {score} баллов.\n"
-        "Вы можете потратить баллы на:\n"
-        "- Скидку при покупке платного курса (1 балл = 2 рубля).\n"
-        "- Максимальная скидка - 600 рублей.\n"
-        "- Другие привилегии в будущем!"
-    )
-    try:
-        await context.bot.send_photo(
-            chat_id=update.effective_chat.id,
-            photo="https://github.com/boss198806/telegram-bot/blob/main/IMG_9692.PNG?raw=true",
-            caption=caption,
-            parse_mode="Markdown",
-        )
-    except Exception as e:
-        logger.error(f"Ошибка при отправке фото для 'Как потратить баллы': {e}")
-        await query.message.reply_text("Произошла ошибка при загрузке фотографии. Пожалуйста, попробуйте позже.")
+    instructor = query.data.split("_")[-1]
+    if instructor in user_paid_course.get(user_id, {}):
+        await start_paid_course(query.message, context, user_id, instructor)
+    else:
+        await query.message.reply_text("У вас нет доступа к платному курсу у этого тренера.")
 
 async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.message.reply_text("Главное меню", reply_markup=main_menu())
+    await query.message.reply_text("Вы вернулись в главное меню.", reply_markup=main_menu())
+    await query.answer()
 
 # Регистрация обработчиков
 def main():
@@ -656,16 +592,13 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_challenges, pattern="^challenge_menu$"))
     application.add_handler(CallbackQueryHandler(buy_challenge, pattern=r"^buy_challenge_(\w+)$"))
     application.add_handler(CallbackQueryHandler(handle_paid_course, pattern="^paid_course$"))
-    application.add_handler(CallbackQueryHandler(handle_send_receipt, pattern=r"send_receipt_(\w+)"))
-    application.add_handler(CallbackQueryHandler(confirm_payment, pattern=r"confirm_payment_\d+_\w+"))
-    application.add_handler(CallbackQueryHandler(handle_my_cabinet, pattern="^my_cabinet$"))
-    application.add_handler(CallbackQueryHandler(handle_about_me, pattern="^about_me$"))
-    application.add_handler(CallbackQueryHandler(handle_earn_points, pattern="^earn_points$"))
-    application.add_handler(CallbackQueryHandler(handle_spend_points, pattern="^spend_points$"))
+    application.add_handler(CallbackQueryHandler(pay_course, pattern=r"^pay_course_(\w+)$"))
+    application.add_handler(CallbackQueryHandler(send_receipt, pattern=r"^send_receipt_(\w+)$"))
+    application.add_handler(CallbackQueryHandler(confirm_payment, pattern=r"^confirm_payment_\d+_\w+$"))
+    application.add_handler(CallbackQueryHandler(start_paid_course_callback, pattern=r"^start_paid_course_(\w+)$"))
     application.add_handler(CallbackQueryHandler(handle_nutrition_menu, pattern="^nutrition_menu$"))
     application.add_handler(CallbackQueryHandler(handle_buy_nutrition_menu, pattern="^buy_nutrition_menu$"))
     application.add_handler(CallbackQueryHandler(handle_referral, pattern="^referral$"))
-    application.add_handler(CallbackQueryHandler(handle_challenge_next_day, pattern=r"^challenge_next_(\w+)$"))
     application.add_handler(CallbackQueryHandler(handle_back, pattern="^back$"))
 
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
