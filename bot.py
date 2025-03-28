@@ -29,7 +29,7 @@ user_waiting_for_challenge_video = {}
 user_waiting_for_paid_video = {}
 user_waiting_for_receipt = {}
 user_challenges = {}  # {user_id: {instructor: {"current_day": int}}}
-user_paid_course = {}  # {user_id: {instructor: {"current_day": int}}}
+user_paid_course = {}  # {user_id: {instructor: {"current_day_home": int, "current_day_gym": int}}}
 statuses = ["Новичок", "Бывалый", "Чемпион", "Профи"]
 
 # Вспомогательные функции
@@ -282,34 +282,42 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=main_menu(),
             )
     elif user_id in user_waiting_for_paid_video:
-        current_day, instructor = user_waiting_for_paid_video[user_id]
+        current_day, instructor, program = user_waiting_for_paid_video[user_id]
         await context.bot.send_message(
             chat_id=GROUP_ID,
-            text=f"Видео-отчет от {user_name} (ID: {user_id}) за день {current_day} платного курса у тренера {instructor}."
+            text=f"Видео-отчет от {user_name} (ID: {user_id}) за день {current_day} платного курса у тренера {instructor} ({'дома' if program == 'home' else 'в зале'})."
         )
         await context.bot.send_video(chat_id=GROUP_ID, video=update.message.video.file_id)
-        user_reports_sent.setdefault(user_id, {})[f"{instructor}_paid_{current_day}"] = True
+        report_key = f"{instructor}_paid_{current_day}_{program}"
+        user_reports_sent.setdefault(user_id, {})[report_key] = True
         user_scores.setdefault(user_id, {}).setdefault(instructor, 0)
-        user_scores[user_id][instructor] += 60
+        # Начисление баллов: 30 для Анастасии, 60 для Евгения
+        points = 30 if instructor == "anastasiya" else 60
+        user_scores[user_id][instructor] += points
         del user_waiting_for_paid_video[user_id]
-        if current_day < 5:
-            user_paid_course[user_id][instructor]["current_day"] += 1
-            new_day = user_paid_course[user_id][instructor]["current_day"]
+        if current_day < (10 if instructor == "anastasiya" else 5):  # 10 дней у Анастасии, 5 у Евгения
+            # Обновляем текущий день в зависимости от программы
+            if program == "home":
+                user_paid_course[user_id][instructor]["current_day_home"] += 1
+                new_day = user_paid_course[user_id][instructor]["current_day_home"]
+            else:  # program == "gym"
+                user_paid_course[user_id][instructor]["current_day_gym"] += 1
+                new_day = user_paid_course[user_id][instructor]["current_day_gym"]
             await update.message.reply_text(
                 f"Отчет за день {current_day} принят! 🎉\nВаши баллы: {user_scores[user_id][instructor]}.\nГотовы к дню {new_day}?",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton(f"➡️ День {new_day}", callback_data=f"paid_next_day_{instructor}")]
+                    [InlineKeyboardButton(f"➡️ День {new_day}", callback_data=f"paid_next_day_{instructor}_{program}")]
                 ]),
             )
         else:
             await update.message.reply_text(
-                f"Поздравляем! Вы завершили платный курс у тренера {instructor}! 🎉\nВаши баллы: {user_scores[user_id][instructor]}.",
+                f"Поздравляем! Вы завершили платный курс у тренера {instructor} ({'дома' if program == 'home' else 'в зале'})! 🎉\nВаши баллы: {user_scores[user_id][instructor]}.",
                 reply_markup=main_menu(),
             )
     else:
         await update.message.reply_text("Я не жду видео. Выберите задание в меню.", reply_markup=main_menu())
 
-# Обработчики выбора пола и программы
+# Обработчики выбора пола и программы для бесплатного курса
 async def handle_free_course_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает выбор бесплатного курса."""
     query = update.callback_query
@@ -339,7 +347,7 @@ async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_text("Выберите программу:", reply_markup=program_keyboard)
 
 async def handle_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает выбор программы."""
+    """Обрабатывает выбор программы для бесплатного курса."""
     query = update.callback_query
     user_id = query.from_user.id
     context.user_data[user_id]["program"] = "home" if query.data == "program_home" else "gym"
@@ -365,34 +373,161 @@ async def start_paid_course(message, context: ContextTypes.DEFAULT_TYPE, user_id
     if instructor not in user_paid_course.get(user_id, {}):
         await message.reply_text("У вас нет доступа к платному курсу у этого тренера.", reply_markup=main_menu())
         return
-    current_day = user_paid_course[user_id][instructor]["current_day"]
-    if current_day > 5:
-        await message.reply_text(f"Вы завершили платный курс у тренера {instructor}! 🎉", reply_markup=main_menu())
+
+    # Если программа ещё не выбрана, запрашиваем выбор
+    if "paid_course_program" not in context.user_data[user_id]:
+        program_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏠 Дома", callback_data=f"paid_program_home_{instructor}"),
+             InlineKeyboardButton("🏋️ В зале", callback_data=f"paid_program_gym_{instructor}")]
+        ])
+        await message.reply_text("Выберите программу для платного курса:", reply_markup=program_keyboard)
         return
 
+    program = context.user_data[user_id]["paid_course_program"]
+
+    # Инициализация текущего дня для программы "дома" или "в зале"
+    if program == "home":
+        user_paid_course[user_id][instructor].setdefault("current_day_home", 1)
+        current_day = user_paid_course[user_id][instructor]["current_day_home"]
+    else:  # program == "gym"
+        user_paid_course[user_id][instructor].setdefault("current_day_gym", 1)
+        current_day = user_paid_course[user_id][instructor]["current_day_gym"]
+
+    # Проверка завершения курса (10 дней у Анастасии, 5 у Евгения)
+    max_days = 10 if instructor == "anastasiya" else 5
+    if current_day > max_days:
+        await message.reply_text(f"Вы завершили платный курс у тренера {instructor} ({'дома' if program == 'home' else 'в зале'})! 🎉", reply_markup=main_menu())
+        return
+
+    # Программа для платного курса
     paid_course_programs = {
         "evgeniy": {
-            1: [
-                "1️⃣ Становая тяга (без веса) 3x15 [Видео](https://t.me/c/2241417709/140/141)",
-                "2️⃣ Жим ногами (имитация) 3x20 [Видео](https://t.me/c/2241417709/155/156)",
-                "3️⃣ Планка с подъемом ног 3x1 мин [Видео](https://t.me/c/2241417709/286/296)",
-            ],
+            "home": {
+                1: [
+                    "1️⃣ Становая тяга (без веса) 3x15 [Видео](https://t.me/c/2241417709/140/141)",
+                    "2️⃣ Жим ногами (имитация) 3x20 [Видео](https://t.me/c/2241417709/155/156)",
+                    "3️⃣ Планка с подъемом ног 3x1 мин [Видео](https://t.me/c/2241417709/286/296)",
+                ],
+                2: [
+                    "1️⃣ Присед с махом 3x20 [Видео](https://t.me/c/2241417709/363/364)",
+                    "2️⃣ Ягодичный мост 3x30 [Видео](https://t.me/c/2241417709/381/382)",
+                    "3️⃣ Велосипед 3x15 [Видео](https://t.me/c/2241417709/278/279)",
+                ],
+                3: [
+                    "1️⃣ Отжимания от пола 3x15 [Видео](https://t.me/c/2241417709/167/168)",
+                    "2️⃣ Лодочка прямые руки 3x30 [Видео](https://t.me/c/2241417709/395/396)",
+                    "3️⃣ Полные подъёмы корпуса 3x20 [Видео](https://t.me/c/2241417709/274/275)",
+                ],
+                4: [
+                    "1️⃣ Выпады назад 3x15 [Видео](https://t.me/c/2241417709/155/156)",
+                    "2️⃣ Махи в бок с колен 3x20 [Видео](https://t.me/c/2241417709/385/386)",
+                    "3️⃣ Косые с касанием пяток 3x15 [Видео](https://t.me/c/2241417709/282/283)",
+                ],
+                5: [
+                    "1️⃣ Присед со штангой (без штанги) 3x20 [Видео](https://t.me/c/2241417709/140/141)",
+                    "2️⃣ Махи под 45 с резинкой 3x20 [Видео](https://t.me/c/2241417709/339/340)",
+                    "3️⃣ Подъёмы ног лёжа 3x15 [Видео](https://t.me/c/2241417709/367/368)",
+                ],
+            },
+            "gym": {
+                1: ["Пока в разработке"],
+            },
         },
         "anastasiya": {
-            1: [
-                "1️⃣ Ягодичный мост с резинкой 3x30 [Видео](https://t.me/c/2241417709/381/382)",
-                "2️⃣ Махи ногами назад 3x20 [Видео](https://t.me/c/2241417709/339/340)",
-                "3️⃣ Планка на локтях 3x1 мин [Видео](https://t.me/c/2241417709/286/296)",
-            ],
+            "home": {
+                1: [
+                    "1. Присед со сменой расстояния 15х3 [Видео](https://t.me/c/2284889769/3/4)",
+                    "2. Выпад в пружине 15х3 [Видео](https://t.me/c/2284889769/5/6)",
+                    "3. Мах прямой ногой на четвереньках 20х3 [Видео](https://t.me/c/2284889769/7/8)",
+                    "4. Мах прямой ногой в сторону 15х3 [Видео](https://t.me/c/2284889769/9/10)",
+                    "5. Сгибание рук с весом 15х3 [Видео](https://t.me/c/2284889769/11/12)",
+                ],
+                2: [
+                    "1. Гипертензия лёжа на животе руки за голову 15х3 [Видео](https://t.me/c/2284889769/13/14)",
+                    "2. Отжимания от пола 15х3 [Видео](https://t.me/c/2334950288/9/24)",
+                    "3. Пуловер с весом 15х3 [Видео](https://t.me/c/2284889769/15/17)",
+                    "4. Поднятие на носки с весом 20х3 [Видео](https://t.me/c/2284889769/18/19)",
+                    "5. Планка 1мин х3 [Видео](https://t.me/c/2334950288/4/19)",
+                ],
+                3: [
+                    "1. Присед в пружинке 20х3 [Видео](https://t.me/c/2284889769/20/22)",
+                    "2. Отведение ноги назад стоя 20х3 [Видео](https://t.me/c/2284889769/23/24)",
+                    "3. Доброе утро с весом 20х3 [Видео](https://t.me/c/2284889769/25/26)",
+                    "4. Жим гантели стоя 15х3 [Видео](https://t.me/c/2284889769/27/28)",
+                    "5. Отведение рук в сторону 15х3 [Видео](https://t.me/c/2284889769/29/30)",
+                ],
+                4: [
+                    "1. Выпад назад 15х3 [Видео](https://t.me/c/2284889769/31/32)",
+                    "2. Ягодичный мост с весом 20х3 [Видео](https://t.me/c/2334950288/3/18)",
+                    "3. Отведение согнутой ноги назад 20х3 [Видео](https://t.me/c/2284889769/33/34)",
+                    "4. Сгибание рук упражнение «молот» 15х3 [Видео](https://t.me/c/2284889769/36/37)",
+                    "5. Поднятие на руки в планке 15х3 [Видео](https://t.me/c/2284889769/38/39)",
+                ],
+                5: [
+                    "1. Тяга в наклоне обратным хватом 15х3 [Видео](https://t.me/c/2284889769/40/41)",
+                    "2. Лодочка на полу 20х4 [Видео](https://t.me/c/2334950288/11/26)",
+                    "3. Планка в динамике скручивание 15х3 [Видео](https://t.me/c/2284889769/42/43)",
+                    "4. Жим гантелей лёжа 15х3 [Видео](https://t.me/c/2284889769/45/46)",
+                    "5. Поднятие на носок по одной ноге 20х3 [Видео](https://t.me/c/2284889769/47/48)",
+                ],
+                6: [
+                    "1. Присед с отведением ноги назад 20х3 [Видео](https://t.me/c/2284889769/49/51)",
+                    "2. Ягодичный мостик 20х3 [Видео](https://t.me/c/2334950288/3/18)",
+                    "3. Махи прямой ноги из стороны в сторону 20х3 [Видео](https://t.me/c/2284889769/50/56)",
+                    "4. Отведение рук перед собой 15х3 [Видео](https://t.me/c/2284889769/57/59)",
+                    "5. Поднятие гантели перед собой 15х3 [Видео](https://t.me/c/2284889769/58/60)",
+                ],
+                7: [
+                    "1. Узкие двойные приседания 20х3 [Видео](https://t.me/c/2284889769/61/62)",
+                    "2. Румынская тяга (можно с бутылками) 15х3 [Видео](https://t.me/c/2478853360/29/30)",
+                    "3. Сгибание ноги на четвереньках 20х3 [Видео](https://t.me/c/2284889769/63/66)",
+                    "4. Сгибание рук с весом 15х3 [Видео](https://t.me/c/2284889769/11/12)",
+                    "5. Французский жим из-за головы 20х3 [Видео](https://t.me/c/2284889769/65/67)",
+                ],
+                8: [
+                    "1. Тяга гантели к поясу по одной руке 15х3 [Видео](https://t.me/c/2284889769/69/70)",
+                    "2. Разведение гантели в стороны в наклоне 15х3 [Видео](https://t.me/c/2284889769/71/72)",
+                    "3. Разведение рук лежа 15х3 [Видео](https://t.me/c/2284889769/73/74)",
+                    "4. Ходьба в планку 15х3 [Видео](https://t.me/c/2284889769/75/76)",
+                    "5. Пресс «жук» 20х3 [Видео](https://t.me/c/2334950288/7/22)",
+                ],
+                9: [
+                    "1. Плие присед 20х3 [Видео](https://t.me/c/2334950288/14/29)",
+                    "2. Перекрёстный выпад 15х3 [Видео](https://t.me/c/2284889769/77/78)",
+                    "3. Ягодичный мостик с опорой на одну ногу 15х3 [Видео](https://t.me/c/2284889769/80/81)",
+                    "4. Жим гантелей узко 15х3 [Видео](https://t.me/c/2284889769/82/83)",
+                    "5. Жим гантели 15х3 [Видео](https://t.me/c/2284889769/27/28)",
+                ],
+                10: [
+                    "1. Болгарские выпады 15х3 [Видео](https://t.me/c/2284889769/84/86)",
+                    "2. Махи в сторону прямая нога 20х3 [Видео](https://t.me/c/2284889769/9/10)",
+                    "3. Румынская тяга 20х3 [Видео](https://t.me/c/2478853360/29/30)",
+                    "4. Жим гантели по одной 15х3 [Видео](https://t.me/c/2284889769/87/91)",
+                    "5. Круговые движения руками в стороны 15х3 [Видео](https://t.me/c/2284889769/92/93)",
+                ],
+            },
+            "gym": {
+                1: ["Пока в разработке"],
+            },
         },
     }
 
-    exercises = paid_course_programs.get(instructor, {}).get(current_day, ["Пока в разработке"])
-    caption = f"📚 **Платный курс у {instructor}: День {current_day}** 📚\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
+    exercises = paid_course_programs.get(instructor, {}).get(program, {}).get(current_day, ["Пока в разработке"])
+    caption = f"📚 **Платный курс у {instructor}: День {current_day} ({'дома' if program == 'home' else 'в зале'})** 📚\n\n" + "\n".join(exercises) + "\n\nОтправьте видео-отчет за день!"
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📹 Отправить отчет", callback_data=f"send_paid_report_day_{current_day}_{instructor}")]
+        [InlineKeyboardButton("📹 Отправить отчет", callback_data=f"send_paid_report_day_{current_day}_{instructor}_{program}")]
     ])
     await context.bot.send_message(chat_id=message.chat_id, text=caption, parse_mode="Markdown", reply_markup=keyboard)
+
+async def handle_paid_program_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает выбор программы для платного курса."""
+    query = update.callback_query
+    user_id = query.from_user.id
+    data = query.data.split("_")
+    program = data[2]  # "home" или "gym"
+    instructor = data[3]
+    context.user_data[user_id]["paid_course_program"] = program
+    await start_paid_course(query.message, context, user_id, instructor)
 
 async def handle_send_paid_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает запрос на отправку отчета для платного курса."""
@@ -401,20 +536,25 @@ async def handle_send_paid_report(update: Update, context: ContextTypes.DEFAULT_
     data = query.data.split("_")
     current_day = int(data[4])
     instructor = data[5]
-    if user_reports_sent.get(user_id, {}).get(f"{instructor}_paid_{current_day}"):
-        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day} у тренера {instructor}.")
+    program = data[6]  # "home" или "gym"
+    report_key = f"{instructor}_paid_{current_day}_{program}"
+    if user_reports_sent.get(user_id, {}).get(report_key):
+        await query.message.reply_text(f"Вы уже отправили отчет за день {current_day} у тренера {instructor} ({'дома' if program == 'home' else 'в зале'}).")
         return
-    user_waiting_for_paid_video[user_id] = (current_day, instructor)
+    user_waiting_for_paid_video[user_id] = (current_day, instructor, program)
     await query.message.reply_text("Пожалуйста, отправьте видео-отчет за текущий день платного курса.")
 
 async def handle_paid_next_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Переходит к следующему дню платного курса."""
     query = update.callback_query
     user_id = query.from_user.id
-    instructor = query.data.split("_")[-1]
+    data = query.data.split("_")
+    instructor = data[3]
+    program = data[4]  # "home" или "gym"
     if instructor not in user_paid_course.get(user_id, {}):
         await query.message.reply_text("У вас нет доступа к платному курсу у этого тренера.", reply_markup=main_menu())
         return
+    context.user_data[user_id]["paid_course_program"] = program  # Устанавливаем программу перед запуском
     await start_paid_course(query.message, context, user_id, instructor)
     await query.answer()
 
@@ -656,7 +796,7 @@ async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data.split("_")
     user_id = int(data[2])
     instructor = data[3]
-    user_paid_course.setdefault(user_id, {})[instructor] = {"current_day": 1}
+    user_paid_course.setdefault(user_id, {})[instructor] = {"current_day_home": 1, "current_day_gym": 1}
     await context.bot.send_message(GROUP_ID, f"Оплата для пользователя {user_id} и тренера {instructor} подтверждена.")
     await context.bot.send_message(user_id, f"Оплата подтверждена! Начните платный курс у тренера {instructor}.")
     await start_paid_course(query.message, context, user_id, instructor)
@@ -680,8 +820,9 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_gender, pattern="^gender_"))
     application.add_handler(CallbackQueryHandler(handle_program, pattern="^program_"))
     application.add_handler(CallbackQueryHandler(handle_send_report, pattern=r"send_report_day_(\d+)_(\w+)_(\w+)"))
-    application.add_handler(CallbackQueryHandler(handle_send_paid_report, pattern=r"send_paid_report_day_(\d+)_(\w+)"))
-    application.add_handler(CallbackQueryHandler(handle_paid_next_day, pattern=r"^paid_next_day_(\w+)$"))
+    application.add_handler(CallbackQueryHandler(handle_send_paid_report, pattern=r"send_paid_report_day_(\d+)_(\w+)_(\w+)"))
+    application.add_handler(CallbackQueryHandler(handle_paid_next_day, pattern=r"^paid_next_day_(\w+)_(\w+)$"))
+    application.add_handler(CallbackQueryHandler(handle_paid_program_selection, pattern=r"^paid_program_(\w+)_(\w+)$"))
     application.add_handler(CallbackQueryHandler(handle_send_challenge_report, pattern=r"send_challenge_report_day_(\d+)_(\w+)"))
     application.add_handler(CallbackQueryHandler(handle_challenges, pattern="^challenge_menu$"))
     application.add_handler(CallbackQueryHandler(buy_challenge, pattern=r"^buy_challenge_(\w+)$"))
