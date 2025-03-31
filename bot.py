@@ -719,27 +719,26 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     """Обрабатывает выбор тренера."""
     query = update.callback_query
     user_id = query.from_user.id
-    data = query.data
-    await query.answer()
-    if data == "instructor_1":
-        context.user_data[user_id]["instructor"] = "evgeniy"
-        await query.message.edit_text("Вы выбрали тренера: Евгений Курочкин")
-        await context.bot.send_video(
+    instructor = "evgeniy" if query.data == "instructor_1" else "anastasiya"
+    context.user_data[user_id]["instructor"] = instructor
+
+    if instructor == "evgeniy":
+        await query.message.edit_text("Вы выбрали тренера: ЕВГЕНИЙ")
+        await context.bot.send_photo(
             chat_id=query.message.chat_id,
-            video="https://github.com/boss198806/telegram-bot/raw/refs/heads/main/IMG_1484.MOV",
-            caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: Евгений Курочкин",
+            photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025-02-08_22-08-36.jpg?raw=true",
+            caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: ЕВГЕНИЙ",
             reply_markup=main_menu(),
         )
-    elif data == "instructor_2":
-        context.user_data[user_id]["instructor"] = "anastasiya"
+    else:  # instructor == "anastasiya"
         await query.message.edit_text("Вы выбрали тренера: АНАСТАСИЯ")
-await context.bot.send_video(
-    chat_id=query.message.chat_id,
-    video="https://t.me/c/2334950288/33/34",
-    caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: АНАСТАСИЯ",
-    reply_markup=main_menu(),
-)
-
+        await context.bot.send_video(
+            chat_id=query.message.chat_id,
+            video="https://t.me/c/2334950288/33/34",
+            caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: АНАСТАСИЯ",
+            reply_markup=main_menu(),
+        )
+    await query.answer()
 # Дополнительные функции
 async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает меню питания."""
