@@ -722,34 +722,42 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     instructor = "evgeniy" if query.data == "instructor_1" else "anastasiya"
     context.user_data[user_id]["instructor"] = instructor
 
-    if instructor == "evgeniy":
-        await query.message.edit_text("Вы выбрали тренера: ЕВГЕНИЙ")
-        await context.bot.send_photo(
+    try:
+        # Пытаемся отредактировать сообщение
+        await query.message.edit_text(f"Вы выбрали тренера: {'ЕВГЕНИЙ' if instructor == 'evgeniy' else 'АНАСТАСИЯ'}")
+    except Exception as e:
+        logger.error(f"Ошибка при редактировании сообщения: {e}")
+        # Если редактирование не удалось, отправляем новое сообщение
+        await context.bot.send_message(
             chat_id=query.message.chat_id,
-            photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025-02-08_22-08-36.jpg?raw=true",
-            caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: ЕВГЕНИЙ",
-            reply_markup=main_menu(),
+            text=f"Вы выбрали тренера: {'ЕВГЕНИЙ' if instructor == 'evgeniy' else 'АНАСТАСИЯ'}"
         )
-    else:  # instructor == "anastasiya"
-        await query.message.edit_text("Вы выбрали тренера: АНАСТАСИЯ")
-        await context.bot.send_video(
-            chat_id=query.message.chat_id,
-            video="https://t.me/c/2334950288/33/34",
-            caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: АНАСТАСИЯ",
-            reply_markup=main_menu(),
-        )
-    await query.answer()
-# Дополнительные функции
-async def handle_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает меню питания."""
-    query = update.callback_query
-    await query.answer()
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Купить меню за 300 баллов", callback_data="buy_nutrition_menu")],
-        [InlineKeyboardButton("Назад", callback_data="back")]
-    ])
-    await query.message.reply_text("Меню питания доступно для покупки:", reply_markup=keyboard)
 
+    try:
+        if instructor == "evgeniy":
+            await context.bot.send_photo(
+                chat_id=query.message.chat_id,
+                photo="https://github.com/boss198806/telegram-bot/blob/main/photo_2025-02-08_22-08-36.jpg?raw=true",
+                caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: ЕВГЕНИЙ",
+                reply_markup=main_menu(),
+            )
+        else:  # instructor == "anastasiya"
+            await context.bot.send_video(
+                chat_id=query.message.chat_id,
+                video="https://t.me/c/2334950288/33/34",
+                caption="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: АНАСТАСИЯ",
+                reply_markup=main_menu(),
+            )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке медиа: {e}")
+        # Если отправка видео/фото не удалась, отправляем только текст с меню
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: " + ("ЕВГЕНИЙ" if instructor == "evgeniy" else "АНАСТАСИЯ"),
+            reply_markup=main_menu(),
+        )
+
+    await query.answer()
 async def handle_buy_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает покупку меню питания."""
     query = update.callback_query
