@@ -626,6 +626,7 @@ async def handle_paid_next_day(update: Update, context: ContextTypes.DEFAULT_TYP
     context.user_data[user_id]["paid_course_program"] = program  # Устанавливаем программу перед запуском
     await start_paid_course(query.message, context, user_id, instructor)
     await query.answer()
+
 # Функции для челленджей
 async def send_challenge_task(message: Update, user_id: int, context: ContextTypes.DEFAULT_TYPE, instructor: str):
     """Отправляет задание челленджа."""
@@ -660,7 +661,7 @@ async def send_challenge_task(message: Update, user_id: int, context: ContextTyp
     if current_day < 5:
         buttons.append([InlineKeyboardButton("➡️ Следующий день", callback_data=f"challenge_next_{instructor}")])
     else:
-        buttons.append([InlineKeyboardButton("🔙 Главное меню", callback_data="back")])
+        buttons.append([InlineKeyboardButton("🔙 Главное меню", callback_data="back_to_main")])
     await message.reply_text(caption, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(buttons))
 
 async def handle_send_challenge_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -719,7 +720,15 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
     """Обрабатывает выбор тренера."""
     query = update.callback_query
     user_id = query.from_user.id
-    instructor = "evgeniy" if query.data == "instructor_1" else "anastasiya"
+    if query.data == "instructor_1":
+        instructor = "evgeniy"
+    elif query.data == "instructor_2":
+        instructor = "anastasiya"
+    else:  # instructor_3
+        await query.message.edit_text("Тренер 3 пока недоступен. Выберите другого тренера.")
+        await query.answer()
+        return
+
     context.user_data[user_id]["instructor"] = instructor
 
     try:
@@ -749,12 +758,29 @@ async def handle_instructor_selection(update: Update, context: ContextTypes.DEFA
                 reply_markup=main_menu(),
             )
     except Exception as e:
-        logger.error(f"Ошибка при отправке медиа: {e}")
+        logger.error(f"Ошибка при отправке медиа для тренера {instructor}: {e}")
         # Если отправка видео/фото не удалась, отправляем только текст с меню
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text="Привет! Я твой фитнес-ассистент!\nВы выбрали тренера: " + ("ЕВГЕНИЙ" if instructor == "evgeniy" else "АНАСТАСИЯ"),
             reply_markup=main_menu(),
+        )
+
+    await query.answer()
+
+async def handle_buy_nutrition_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает покупку меню питания."""
+    query = update.callback_query
+    user_id = query.from_user.id
+    instructor = context.user_data[user_id].get("instructor")
+    if instructor and user_scores.get(user_id, {}).get(instructor, 0) >= 300:
+        user_scores[user_id][instructor] -= 300
+        await query.message.reply_text(
+            f"Меню питания куплено у тренера {instructor}!\nСсылка: https://t.me/MENUKURO4KIN/2",
+            reply_markup=main_menu(),
+        )
+    else:
+        await query.message.reply_text(f"Недостаточно баллов у тренера {instructor}!")
         )
 
     await query.answer()
