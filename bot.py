@@ -107,54 +107,56 @@ async def handle_pro_detox(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # Обработчик для кнопки ECO Market
-import logging
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    CallbackQueryHandler,
-    ContextTypes,
-)
+async def handle_eco_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает выбор кнопки ECO Market и отправляет видео, затем описание с кнопками."""
+    query = update.callback_query
+    await query.answer()  # Подтверждаем нажатие кнопки
 
-# Настройка логирования
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-logger = logging.getLogger(__name__)
+    # Описание для ECO Market
+    description = (
+        "С 15 мая у нас стартует онлайн курс - *ЭКО МАРКЕТ*✅\n\n"
+        "3 дня бесплатного обучения, по созданию такого чата, как у меня))) где тебя научат: создавать чат, рассказывать о продукте, делать обзоры🩷\n\n"
+        "**Что ты получишь за 3 дня обучения? ⬇️**\n\n"
+        "1️⃣ Начнешь зарабатывать на чате 5-30.000₽ в месяц, без рисков и вложений, уделяя 1 час в день\n"
+        "2️⃣ У тебя будет наставник, я всегда помогу, расскажу и передам свой опыт\n"
+        "3️⃣ Возможность бесплатно пользоваться продуктом\n"
+        "4️⃣ Получишь подарки от компании в течении 6-ти месяцев на 10.000₽ даже швабру дарят\n\n"
+        "✅ Можно совмещать с основной работой/учебой😻 Нужно только твое желание🩷\n\n"
+        "А если хочешь масштаба 🚀 изменить свою жизнь, то я могу рассказать тебе, про другие виды заработка в компании и тогда мы будем работать по другому 🤩\n\n"
+        "Напиши мне✍🏼 я отправлю тебе ссылку на бесплатный онлайн курс☺️🙌🏼 в тг канале)"
+    )
 
-# Токен бота
-TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"  # Ваш токен
-
-# Главное меню с видео
-def main_menu():
-    """Возвращает главное меню бота с кнопками PRO DETOX и ECO Market."""
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🍏 PRO DETOX", callback_data="pro_detox"),
-         InlineKeyboardButton("🛒 ECO Market", callback_data="eco_market")]
+    # Кнопки
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📩 Написать мне", url="https://t.me/kuro4kin_sansay")],
+        [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_main")]
     ])
 
-# Команда /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает команду /start и отправляет видео с кнопками."""
-    user_id = update.effective_user.id
-    context.user_data.setdefault(user_id, {})
-
     try:
-        # Отправляем видео из Telegram
+        # Удаляем предыдущее сообщение
+        await query.message.delete()
+        # Отправляем видео без подписи
         await context.bot.send_video(
-            chat_id=update.effective_chat.id,
-            video="https://t.me/speekto/2",
-            caption="",
-            reply_markup=main_menu()
+            chat_id=query.message.chat_id,
+            video="https://t.me/speekto/4",
+            reply_markup=None  # Кнопки будут в следующем сообщении
+        )
+        # Отправляем описание как отдельное сообщение с кнопками
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=description,
+            parse_mode="MarkdownV2",
+            reply_markup=keyboard
         )
     except Exception as e:
-        logger.error(f"Ошибка при отправке видео: {e}")
-        # Если видео не удалось отправить, отправляем сообщение с кнопками
+        logger.error(f"Ошибка при отправке видео или сообщения для ECO Market: {e}")
+        # Если что-то пошло не так, отправляем только текст с описанием и кнопками
         await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Не удалось загрузить приветственное видео. Выберите действие ниже:",
-            reply_markup=main Wrote 6 kb to ./bot.py
+            chat_id=query.message.chat_id,
+            text="Не удалось загрузить видео для ECO Market.\n\n" + description,
+            parse_mode="MarkdownV2",
+            reply_markup=keyboard
+        )
 
 # Обработчик для возврата в главное меню
 async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
