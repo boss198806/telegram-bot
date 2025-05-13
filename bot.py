@@ -108,17 +108,32 @@ async def handle_pro_detox(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Обработчик для кнопки ECO Market
 async def handle_eco_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает выбор кнопки ECO Market и отправляет видео с кнопкой."""
+    """Обрабатывает выбор кнопки ECO Market и отправляет видео с описанием и кнопкой."""
     query = update.callback_query
     await query.answer()  # Подтверждаем нажатие кнопки
 
+    # Описание для ECO Market
+    description = (
+        "С 15 мая у нас стартует онлайн курс - *ЭКО МАРКЕТ*✅\n\n"
+        "3 дня бесплатного обучения, по созданию такого чата, как у меня))) где тебя научат: создавать чат, рассказывать о продукте, делать обзоры🩷\n\n"
+        "**Что ты получишь за 3 дня обучения? ⬇️**\n\n"
+        "1️⃣ Начнешь зарабатывать на чате 5-30.000₽ в месяц, без рисков и вложений, уделяя 1 час в день\n"
+        "2️⃣ У тебя будет наставник, я всегда помогу, расскажу и передам свой опыт\n"
+        "3️⃣ Возможность бесплатно пользоваться продуктом\n"
+        "4️⃣ Получишь подарки от компании в течении 6-ти месяцев на 10.000₽ даже швабру дарят\n\n"
+        "✅ Можно совмещать с основной работой/учебой😻 Нужно только твое желание🩷\n\n"
+        "А если хочешь масштаба 🚀 изменить свою жизнь, то я могу рассказать тебе, про другие виды заработка в компании и тогда мы будем работать по другому 🤩\n\n"
+        "Напиши мне✍🏼 я отправлю тебе ссылку на бесплатный онлайн курс☺️🙌🏼 в тг канале)"
+    )
+
     try:
-        # Отправляем видео из Telegram
+        # Отправляем видео из Telegram с описанием
         await query.message.delete()  # Удаляем текущее сообщение
         await context.bot.send_video(
             chat_id=query.message.chat_id,
             video="https://t.me/speekto/4",
-            caption="",
+            caption=description,
+            parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("📩 Написать мне", url="https://t.me/kuro4kin_sansay")],
                 [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_main")]
@@ -126,9 +141,10 @@ async def handle_eco_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке видео для ECO Market: {e}")
-        # Если видео не удалось отправить, отправляем сообщение с кнопкой
+        # Если видео не удалось отправить, отправляем сообщение с описанием и кнопкой
         await query.message.edit_caption(
-            caption="Не удалось загрузить видео для ECO Market. Свяжитесь со мной для подробностей!",
+            caption="Не удалось загрузить видео для ECO Market.\n\n" + description,
+            parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("📩 Написать мне", url="https://t.me/kuro4kin_sansay")],
                 [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_main")]
