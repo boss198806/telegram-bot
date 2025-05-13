@@ -17,24 +17,35 @@ logger = logging.getLogger(__name__)
 # Токен бота
 TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"  # Ваш токен
 
-# Главное меню
+# Главное меню с видео
 def main_menu():
-    """Возвращает главное меню бота."""
+    """Возвращает главное меню бота с кнопкой PRO DETOX."""
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🍏 PRO DETOX", callback_data="pro_detox")]
     ])
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает команду /start."""
+    """Обрабатывает команду /start и отправляет видео с кнопкой."""
     user_id = update.effective_user.id
     context.user_data.setdefault(user_id, {})
 
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Привет! Я твой помощник. Выбери действие ниже:",
-        reply_markup=main_menu()
-    )
+    try:
+        # Отправляем видео из Telegram
+        await context.bot.send_video(
+            chat_id=update.effective_chat.id,
+            video="https://t.me/speekto/2",
+            caption="",
+            reply_markup=main_menu()
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке видео: {e}")
+        # Если видео не удалось отправить, отправляем сообщение с кнопкой
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Не удалось загрузить приветственное видео. Выберите действие ниже:",
+            reply_markup=main_menu()
+        )
 
 # Обработчик для кнопки PRO DETOX
 async def handle_pro_detox(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -85,12 +96,24 @@ async def handle_pro_detox(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Обработчик для возврата в главное меню
 async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Возвращает пользователя в главное меню."""
+    """Возвращает пользователя в главное меню с видео."""
     query = update.callback_query
-    await query.message.edit_text(
-        "Привет! Я твой помощник. Выбери действие ниже:",
-        reply_markup=main_menu()
-    )
+    try:
+        # Отправляем видео из Telegram
+        await query.message.delete()  # Удаляем текущее сообщение
+        await context.bot.send_video(
+            chat_id=query.message.chat_id,
+            video="https://t.me/speekto/2",
+            caption="",
+            reply_markup=main_menu()
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке видео: {e}")
+        # Если видео не удалось отправить, отправляем сообщение с кнопкой
+        await query.message.edit_text(
+            text="Не удалось загрузить приветственное видео. Выберите действие ниже:",
+            reply_markup=main_menu()
+        )
     await query.answer()
 
 # Регистрация обработчиков
