@@ -108,7 +108,7 @@ async def handle_pro_detox(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Обработчик для кнопки ECO Market
 async def handle_eco_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает выбор кнопки ECO Market и отправляет видео с описанием и кнопкой."""
+    """Обрабатывает выбор кнопки ECO Market и отправляет видео с описанием и кнопками."""
     query = update.callback_query
     await query.answer()  # Подтверждаем нажатие кнопки
 
@@ -126,52 +126,31 @@ async def handle_eco_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Напиши мне✍🏼 я отправлю тебе ссылку на бесплатный онлайн курс☺️🙌🏼 в тг канале)"
     )
 
+    # Кнопки
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📩 Написать мне", url="https://t.me/kuro4kin_sansay")],
+        [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_main")]
+    ])
+
     try:
-        # Отправляем видео из Telegram с описанием
-        await query.message.delete()  # Удаляем текущее сообщение
+        # Удаляем предыдущее сообщение
+        await query.message.delete()
+        # Отправляем видео с описанием и кнопками
         await context.bot.send_video(
             chat_id=query.message.chat_id,
             video="https://t.me/speekto/4",
             caption=description,
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("📩 Написать мне", url="https://t.me/kuro4kin_sansay")],
-                [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_main")]
-            ])
+            parse_mode="MarkdownV2",  # Используем MarkdownV2 для корректного форматирования
+            reply_markup=keyboard
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке видео для ECO Market: {e}")
-        # Если видео не удалось отправить, отправляем сообщение с описанием и кнопкой
-        await query.message.edit_caption(
-            caption="Не удалось загрузить видео для ECO Market.\n\n" + description,
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("📩 Написать мне", url="https://t.me/kuro4kin_sansay")],
-                [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_main")]
-            ])
-        )
-
-# Обработчик для возврата в главное меню
-async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Возвращает пользователя в главное меню с видео."""
-    query = update.callback_query
-    await query.answer()  # Подтверждаем нажатие кнопки
-    try:
-        # Отправляем видео из Telegram
-        await query.message.delete()  # Удаляем текущее сообщение
-        await context.bot.send_video(
-            chat_id=query.message.chat_id,
-            video="https://t.me/speekto/2",
-            caption="",
-            reply_markup=main_menu()
-        )
-    except Exception as e:
-        logger.error(f"Ошибка при отправке видео: {e}")
-        # Если видео не удалось отправить, отправляем сообщение с кнопками
+        # Если видео не отправилось, отправляем текст с описанием и кнопками
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Не удалось загрузить приветственное видео. Выберите действие ниже:",
-            reply_markup=main_menu()
+            text="Не удалось загрузить видео для ECO Market.\n\n" + description,
+            parse_mode="MarkdownV2",
+            reply_markup=keyboard
         )
 
 # Регистрация обработчиков
