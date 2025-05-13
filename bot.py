@@ -19,14 +19,15 @@ TOKEN = "7761949562:AAF-zTgYwd5rzETyr3OnAGCGxrSQefFuKZs"  # Ваш токен
 
 # Главное меню с видео
 def main_menu():
-    """Возвращает главное меню бота с кнопкой PRO DETOX."""
+    """Возвращает главное меню бота с кнопками PRO DETOX и ECO Market."""
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🍏 PRO DETOX", callback_data="pro_detox")]
+        [InlineKeyboardButton("🍏 PRO DETOX", callback_data="pro_detox"),
+         InlineKeyboardButton("🛒 ECO Market", callback_data="eco_market")]
     ])
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает команду /start и отправляет видео с кнопкой."""
+    """Обрабатывает команду /start и отправляет видео с кнопками."""
     user_id = update.effective_user.id
     context.user_data.setdefault(user_id, {})
 
@@ -40,7 +41,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке видео: {e}")
-        # Если видео не удалось отправить, отправляем сообщение с кнопкой
+        # Если видео не удалось отправить, отправляем сообщение с кнопками
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Не удалось загрузить приветственное видео. Выберите действие ниже:",
@@ -51,6 +52,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_pro_detox(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает выбор кнопки PRO DETOX и отправляет описание проекта."""
     query = update.callback_query
+    await query.answer()  # Подтверждаем нажатие кнопки
     description = (
         "Лето стройности ждет тебя! 🔥\n\n"
         "Мы запускаем летнее похудение — *PRO Detox* курс с Greenway Global! 🍏\n\n"
@@ -87,17 +89,57 @@ async def handle_pro_detox(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_main")]
     ])
 
-    await query.message.edit_text(
-        text=description,
-        parse_mode="Markdown",
-        reply_markup=keyboard
-    )
-    await query.answer()
+    try:
+        await query.message.edit_caption(
+            caption=description,
+            parse_mode="Markdown",
+            reply_markup=keyboard
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при редактировании сообщения: {e}")
+        # Если редактирование не удалось (например, это не видео-сообщение), отправляем новое сообщение
+        await query.message.delete()
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=description,
+            parse_mode="Markdown",
+            reply_markup=keyboard
+        )
+
+# Обработчик для кнопки ECO Market
+async def handle_eco_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает выбор кнопки ECO Market и отправляет видео с кнопкой."""
+    query = update.callback_query
+    await query.answer()  # Подтверждаем нажатие кнопки
+
+    try:
+        # Отправляем видео из Telegram
+        await query.message.delete()  # Удаляем текущее сообщение
+        await context.bot.send_video(
+            chat_id=query.message.chat_id,
+            video="https://t.me/speekto/4",
+            caption="",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📩 Написать мне", url="https://t.me/kuro4kin_sansay")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_main")]
+            ])
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке видео для ECO Market: {e}")
+        # Если видео не удалось отправить, отправляем сообщение с кнопкой
+        await query.message.edit_caption(
+            caption="Не удалось загрузить видео для ECO Market. Свяжитесь со мной для подробностей!",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📩 Написать мне", url="https://t.me/kuro4kin_sansay")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_main")]
+            ])
+        )
 
 # Обработчик для возврата в главное меню
 async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Возвращает пользователя в главное меню с видео."""
     query = update.callback_query
+    await query.answer()  # Подтверждаем нажатие кнопки
     try:
         # Отправляем видео из Telegram
         await query.message.delete()  # Удаляем текущее сообщение
@@ -109,12 +151,12 @@ async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке видео: {e}")
-        # Если видео не удалось отправить, отправляем сообщение с кнопкой
-        await query.message.edit_text(
+        # Если видео не удалось отправить, отправляем сообщение с кнопками
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
             text="Не удалось загрузить приветственное видео. Выберите действие ниже:",
             reply_markup=main_menu()
         )
-    await query.answer()
 
 # Регистрация обработчиков
 def main():
@@ -123,6 +165,7 @@ def main():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(handle_pro_detox, pattern="^pro_detox$"))
+    application.add_handler(CallbackQueryHandler(handle_eco_market, pattern="^eco_market$"))
     application.add_handler(CallbackQueryHandler(back_to_main, pattern="^back_to_main$"))
 
     print("Бот запущен.")
