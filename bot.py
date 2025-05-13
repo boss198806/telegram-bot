@@ -97,7 +97,7 @@ async def handle_pro_detox(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         logger.error(f"Ошибка при редактировании сообщения: {e}")
-        # Если редактирование не удалось (например, это не видео-сообщение), отправляем новое сообщение
+        # Если редактирование не удалось, отправляем новое сообщение
         await query.message.delete()
         await context.bot.send_message(
             chat_id=query.message.chat_id,
@@ -151,6 +151,29 @@ async def handle_eco_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text="Не удалось загрузить видео для ECO Market.\n\n" + description,
             parse_mode="MarkdownV2",
             reply_markup=keyboard
+        )
+
+# Обработчик для возврата в главное меню
+async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Возвращает пользователя в главное меню с видео."""
+    query = update.callback_query
+    await query.answer()  # Подтверждаем нажатие кнопки
+    try:
+        # Отправляем видео из Telegram
+        await query.message.delete()  # Удаляем текущее сообщение
+        await context.bot.send_video(
+            chat_id=query.message.chat_id,
+            video="https://t.me/speekto/2",
+            caption="",
+            reply_markup=main_menu()
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке видео: {e}")
+        # Если видео не удалось отправить, отправляем сообщение с кнопками
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="Не удалось загрузить приветственное видео. Выберите действие ниже:",
+            reply_markup=main_menu()
         )
 
 # Регистрация обработчиков
